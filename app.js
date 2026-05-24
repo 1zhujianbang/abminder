@@ -1123,7 +1123,7 @@
     state.selectedTime = null;
     state.selectedIndex = null;
     dom.ohlcBar.textContent = "";
-    document.title = "Reminder | " + state.symbol;
+    document.title = "abminder | " + state.symbol;
     dom.noteArea.classList.add("hidden");
     dom.noteInput.value = "";
     dom.noteInput.disabled = true;
@@ -1150,7 +1150,7 @@
     lastDirection = close > open ? "↑" : close < open ? "↓" : "→";
     lastPrice = formatPrice(close);
     document.title =
-      "Reminder | " + state.symbol + " " + lastPrice + " " + lastDirection;
+      "abminder | " + state.symbol + " " + lastPrice + " " + lastDirection;
   }
 
   function showLoading(on) {
@@ -1221,7 +1221,7 @@
         });
         var c = state.data[state.data.length - 1];
         document.title =
-          "Reminder | " +
+          "abminder | " +
           state.symbol +
           " " +
           formatPrice(c.close) +
@@ -1239,7 +1239,7 @@
     } catch (err) {
       showToast("数据加载失败: " + err.message, "error");
       state.data = [];
-      document.title = "Reminder | " + state.symbol;
+      document.title = "abminder | " + state.symbol;
       try {
         candleSeries.setData([]);
       } catch (_) {}
@@ -1615,7 +1615,7 @@
     });
     marketPriceLine.applyOptions({ price: tip.close });
     document.title =
-      "Reminder | " +
+      "abminder | " +
       state.symbol +
       " " +
       formatPrice(tip.close) +
@@ -1908,7 +1908,7 @@
       } catch (_) {}
       marketPriceLine.applyOptions({ price: tip.close });
       document.title =
-        "Reminder | " +
+        "abminder | " +
         state.symbol +
         " " +
         formatPrice(tip.close) +
@@ -2262,7 +2262,7 @@
     symbolChangeLock = true;
     try {
       state.symbol = sym;
-      document.title = "Reminder | " + sym;
+      document.title = "abminder | " + sym;
       signalFilter = "all";
       histStack = [];
       histIndex = -1;
@@ -3692,7 +3692,7 @@
   };
 
   async function init() {
-    document.title = "Reminder | " + state.symbol;
+    document.title = "abminder | " + state.symbol;
     setFavicon();
     cacheDom();
     loadSignals();

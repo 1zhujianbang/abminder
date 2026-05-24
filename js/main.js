@@ -92,7 +92,7 @@ async function loadChartData() {
     } catch (err) {
         showToast('数据加载失败: ' + err.message, 'error');
         state.data = [];
-        document.title = 'Reminder | ' + state.symbol;
+        document.title = 'abminder | ' + state.symbol;
         try { candleSeries.setData([]); } catch (_) {}
     } finally {
         showLoading(false);
@@ -108,7 +108,7 @@ async function changeSymbol(sym) {
     setSymbolChangeLock(true);
     try {
         state.symbol = sym;
-        document.title = 'Reminder | ' + sym;
+        document.title = 'abminder | ' + sym;
         releaseKLine();
         setSignalFilter('all');
         loadSignals();
@@ -288,7 +288,7 @@ function wireCallbacks() {
     setOnTitleUpdate(function () {
         var last = state.data[state.data.length - 1];
         if (last) {
-            document.title = 'Reminder | ' + state.symbol + ' ' + last.close + ' ' + (last.close > last.open ? '↑' : last.close < last.open ? '↓' : '→');
+            document.title = 'abminder | ' + state.symbol + ' ' + last.close + ' ' + (last.close > last.open ? '↑' : last.close < last.open ? '↓' : '→');
         }
     });
 
@@ -363,7 +363,7 @@ function wireCustomEvents() {
 // ============================================================
 
 async function init() {
-    document.title = 'Reminder | ' + state.symbol;
+    document.title = 'abminder | ' + state.symbol;
     setFavicon();
 
     // Load persisted data

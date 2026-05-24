@@ -1,5 +1,5 @@
 /**
- * Remote control server for Reminder trading tool.
+ * Remote control server for abminder trading tool.
  * Run: node server.js
  * Then open http://localhost:3456 in your browser.
  */
@@ -250,7 +250,7 @@ fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
 
 server.listen(PORT, function () {
     console.log('┌─────────────────────────────────────────┐');
-    console.log('│  Reminder Remote Control Server        │');
+    console.log('│  abminder Remote Control Server        │');
     console.log('│  Open: http://localhost:' + PORT + '          │');
     console.log('│  API:  POST /api  (send command)       │');
     console.log('└─────────────────────────────────────────┘');

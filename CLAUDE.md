@@ -1,4 +1,4 @@
-# Reminder — 交易信号标注工具
+# abminder — 交易信号标注工具
 
 浏览器端 K 线图表分析 + 信号标记 + 笔记系统。
 通过 `server.js`(localhost:3456) 提供静态服务和 HTTP API，与 Claude 协同实现自动化分析。

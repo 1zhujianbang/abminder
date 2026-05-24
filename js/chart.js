@@ -162,7 +162,7 @@ export function updateOHLCBar(candle) {
         '<span class="ohlc-time">' + ts + '</span>';
     setLastDirection(close > open ? '↑' : close < open ? '↓' : '→');
     setLastPrice(formatPrice(close));
-    document.title = 'Reminder | ' + state.symbol + ' ' + formatPrice(close) + ' ' + (close > open ? '↑' : close < open ? '↓' : '→');
+    document.title = 'abminder | ' + state.symbol + ' ' + formatPrice(close) + ' ' + (close > open ? '↑' : close < open ? '↓' : '→');
 }
 
 function formatPrice(val) {
@@ -182,12 +182,12 @@ function formatVolume(val) {
 // ============================================================
 
 export function updateTitle() {
-    document.title = 'Reminder | ' + state.symbol;
+    document.title = 'abminder | ' + state.symbol;
     if (lastPrice) document.title += ' ' + lastPrice + ' ' + (lastDirection || '');
 }
 
 export function setTitleSymbolOnly() {
-    document.title = 'Reminder | ' + state.symbol;
+    document.title = 'abminder | ' + state.symbol;
 }
 
 // ============================================================
@@ -282,7 +282,7 @@ export function releaseKLine() {
     state.selectedIndex = null;
     var ohlcEl = document.getElementById('ohlc-bar');
     if (ohlcEl) ohlcEl.textContent = '';
-    document.title = 'Reminder | ' + state.symbol;
+    document.title = 'abminder | ' + state.symbol;
     if (window.__onPinChanged) window.__onPinChanged();
     updateMarkers();
 }
