@@ -106,9 +106,9 @@ EXCHANGES.push({
     },
 });
 
-// --- US Stock market (NASDAQ API — daily data, no key) ---
+// --- US Stock market (Yahoo Finance, no key) ---
 EXCHANGES.push({
-    id: 'nasdaq', label: 'NASDAQ', market: '美股市场', maxLimit: 500,
+    id: 'yahoo', label: 'Yahoo Finance', market: '美股市场', maxLimit: 500,
     instMap: {
         'AAPL-PERP': 'AAPL', 'AMD-PERP': 'AMD', 'AMZN-PERP': 'AMZN',
         'AVGO-PERP': 'AVGO', 'COIN-PERP': 'COIN', 'COST-PERP': 'COST',
@@ -122,49 +122,73 @@ EXCHANGES.push({
         'QCOM-PERP': 'QCOM', 'RKLB-PERP': 'RKLB', 'HIMS-PERP': 'HIMS',
         'NBIS-PERP': 'NBIS',
     },
-    tfMap: { 1: 'daily', 5: 'daily', 15: 'daily', 60: 'daily', 240: 'daily', 1440: 'daily' },
+    tfMap: { 1: '1m', 5: '5m', 15: '15m', 60: '60m', 240: '60m', 1440: '1d' },
     fetchData: async function (symbol, interval, limit) {
-        // NASDAQ API only supports daily
-        if (interval !== 'daily') throw new Error('NASDAQ only supports daily timeframe');
-        var end = new Date();
-        var start = new Date(end);
-        start.setDate(start.getDate() - limit - 10);
-        var fmt = function(d) { return d.toISOString().slice(0, 10); };
-        var url = '/api/nasdaq?symbol=' + symbol + '&from=' + fmt(start) + '&limit=' + (limit + 10);
+        var end = Math.floor(Date.now() / 1000);
+        var secsPer = interval === '1d' ? 86400 : parseInt(interval) * 60;
+        var from = end - (limit + 20) * secsPer;
+        var url = '/api/proxy?url=' + encodeURIComponent(
+            'https://query1.finance.yahoo.com/v8/finance/chart/' + encodeURIComponent(symbol) +
+            '?period1=' + from + '&period2=' + end + '&interval=' + interval
+        );
         var r = await fetch(url);
-        if (!r.ok) throw new Error('NASDAQ HTTP ' + r.status);
+        if (!r.ok) throw new Error('Yahoo HTTP ' + r.status);
         var j = await r.json();
-        if (!j.data || !j.data.tradesTable || !j.data.tradesTable.rows) throw new Error('NASDAQ: no data');
-        var data = j.data.tradesTable.rows.map(function (row) {
-            var parts = row.date.split('/');
-            // date format: MM/DD/YYYY
-            var ts = Math.floor(new Date(parts[2], parts[0] - 1, parts[1]).getTime() / 1000);
-            var clean = function(v) { return parseFloat(String(v).replace(/[$,]/g, '')); };
+        if (!j.chart || !j.chart.result || !j.chart.result[0]) throw new Error('Yahoo: no data');
+        var result = j.chart.result[0];
+        var quotes = result.indicators.quote[0];
+        var times = result.timestamp;
+        if (!times || !quotes) throw new Error('Yahoo: empty data');
+        var data = times.map(function (t, i) {
             return {
-                time: ts,
-                open: clean(row.open),
-                high: clean(row.high),
-                low: clean(row.low),
-                close: clean(row.close),
-                volume: parseInt(String(row.volume).replace(/,/g, '')) || 0,
+                time: t,
+                open: quotes.open[i],
+                high: quotes.high[i],
+                low: quotes.low[i],
+                close: quotes.close[i],
+                volume: quotes.volume[i] || 0,
             };
-        }).filter(function(d) { return d.time > 0 && isFinite(d.open) && d.open > 0; });
+        }).filter(function (d) {
+            return d.time > 0 && d.open != null && d.high != null && d.low != null && d.close != null
+                && isFinite(d.open) && isFinite(d.high) && isFinite(d.low) && isFinite(d.close) && d.open > 0;
+        });
         return data.slice(-limit);
     },
 });
 
-// --- China A-share market (East Money) ---
+// --- China A-share market (AkShare Python bridge) ---
+EXCHANGES.push({
+    id: 'akshare', label: 'AkShare', market: 'A股市场', maxLimit: 2000,
+    instMap: {
+        'SH000001': 'sh000001', 'SZ399001': 'sz399001',
+        'SH600519': 'sh600519', 'SZ300750': 'sz300750',
+        'SH601318': 'sh601318', 'SH600036': 'sh600036',
+        'SZ000858': 'sz000858', 'SH600900': 'sh600900',
+    },
+    tfMap: { 1: '1', 5: '5', 15: '15', 60: '60', 240: '60', 1440: '101' },
+    fetchData: async function (symbol, period, limit) {
+        // Uses Python bridge → Sina (minute) / Tencent (daily) backends
+        var r = await fetch('/api/akshare?symbol=' + encodeURIComponent(symbol) + '&period=' + period + '&limit=' + limit);
+        if (!r.ok) throw new Error('AkShare HTTP ' + r.status);
+        var j = await r.json();
+        if (!Array.isArray(j)) throw new Error('AkShare: ' + (j.error || 'unknown error'));
+        if (j.length === 0) throw new Error('AkShare: no data');
+        return j;
+    },
+});
+
+// --- China A-share market (East Money proxy, fallback) ---
 EXCHANGES.push({
     id: 'eastmoney', label: '东方财富', market: 'A股市场', maxLimit: 500,
     instMap: {
-        'SH000001': { code: '1.000001', name: '上证指数' },
-        'SZ399001': { code: '0.399001', name: '深证成指' },
-        'SH600519': { code: '1.600519', name: '贵州茅台' },
-        'SZ300750': { code: '0.300750', name: '宁德时代' },
-        'SH601318': { code: '1.601318', name: '中国平安' },
-        'SH600036': { code: '1.600036', name: '招商银行' },
-        'SZ000858': { code: '0.000858', name: '五粮液' },
-        'SH600900': { code: '1.600900', name: '长江电力' },
+        'SH000001': '1.000001',
+        'SZ399001': '0.399001',
+        'SH600519': '1.600519',
+        'SZ300750': '0.300750',
+        'SH601318': '1.601318',
+        'SH600036': '1.600036',
+        'SZ000858': '0.000858',
+        'SH600900': '1.600900',
     },
     tfMap: { 1: '1', 5: '5', 15: '15', 60: '60', 240: '240', 1440: '101' },
     fetchData: async function (secId, interval, limit) {
@@ -178,7 +202,7 @@ EXCHANGES.push({
             var timeStr = parts[0];
             var ts = Math.floor(new Date(timeStr.replace(/-/g, '/')).getTime() / 1000);
             return { time: ts, open: parseFloat(parts[1]), close: parseFloat(parts[2]), high: parseFloat(parts[3]), low: parseFloat(parts[4]), volume: parseFloat(parts[5]) };
-        }).filter(function (d) { return d.time > 0 && isFinite(d.open); });
+        }).filter(function (d) { return d.time > 0 && isFinite(d.time) && isFinite(d.open) && isFinite(d.high) && isFinite(d.low) && isFinite(d.close); });
     },
 });
 
@@ -274,6 +298,7 @@ function wsChannelFor(symbol, tfMin) {
 
 function connectOKXWS() {
     if (ws) return;
+    if (state.currentMarket !== '加密市场') return;
     var ch = wsChannelFor(state.symbol, state.timeframe);
     if (!ch) return;
     var instId = ch[0], channel = ch[1];
@@ -282,7 +307,7 @@ function connectOKXWS() {
     var connTimer = setTimeout(function () {
         if (ws && ws.readyState <= 1) {
             ws.onclose = null; ws.close(); ws = null;
-            if (state.realtime) connectBinanceWS();
+            if (state.realtime && state.currentMarket === '加密市场') connectBinanceWS();
         }
     }, 5000);
     ws.onopen = function () {
@@ -307,7 +332,7 @@ function connectOKXWS() {
     };
     ws.onclose = function () {
         clearTimeout(connTimer); ws = null;
-        if (state.realtime) {
+        if (state.realtime && state.currentMarket === '加密市场') {
             if (realtimeSource !== 'okx-ws') connectBinanceWS();
             else wsReconnectTimer = setTimeout(connectOKXWS, WS_RECONNECT_DELAY);
         }
@@ -321,6 +346,7 @@ import { BINANCE_WS_SYMBOLS, BINANCE_WS_TF } from './config.js';
 
 function connectBinanceWS() {
     if (ws) return;
+    if (state.currentMarket !== '加密市场') return;
     var bSymbol = BINANCE_WS_SYMBOLS[state.symbol];
     var bInterval = BINANCE_WS_TF[state.timeframe];
     if (!bSymbol || !bInterval) return;
@@ -338,7 +364,7 @@ function connectBinanceWS() {
             });
         } catch (e) { console.log('[Binance WS] parse error:', e); }
     };
-    ws.onclose = function () { ws = null; if (state.realtime) wsReconnectTimer = setTimeout(connectBinanceWS, WS_RECONNECT_DELAY); };
+    ws.onclose = function () { ws = null; if (state.realtime && state.currentMarket === '加密市场') wsReconnectTimer = setTimeout(connectBinanceWS, WS_RECONNECT_DELAY); };
     ws.onerror = function () {};
 }
 
@@ -353,6 +379,7 @@ function disconnectWS() {
 var pollTimer = null;
 
 async function restPollUpdate() {
+    if (state.currentMarket && state.currentMarket !== '加密市场') return;
     try {
         var gen = fetchGen;
         var newData = await fetchOHLCV(state.symbol, state.timeframe, state.candleLimit || 300);
@@ -377,13 +404,12 @@ export function startRealtime() {
     if (state.realtime) return;
     state.realtime = true;
     realtimeSource = null;
-    // Only connect WebSocket for crypto market
     var market = state.currentMarket || '加密市场';
     if (market === '加密市场') {
         connectOKXWS();
+        restPollUpdate();
+        pollTimer = setInterval(restPollUpdate, 500);
     }
-    restPollUpdate();
-    pollTimer = setInterval(restPollUpdate, 500);
 }
 
 export function stopRealtime() {

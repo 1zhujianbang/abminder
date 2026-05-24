@@ -100,17 +100,26 @@ export function setChartData(newData) {
     drawLineInstances.forEach(function (pl) { try { candleSeries.removePriceLine(pl); } catch (_) {} });
     drawLineInstances = [];
 
-    candleSeries.setData(newData.map(function (d) {
-        return { time: d.time, open: d.open, high: d.high, low: d.low, close: d.close };
-    }));
+    if (!newData || !newData.length) { try { candleSeries.setData([]); } catch (_) {} try { volumeSeries.setData([]); } catch (_) {} return; }
+    var safe = newData.filter(function (d) {
+        return d && d.time != null && d.open != null && d.high != null && d.low != null && d.close != null
+            && isFinite(d.time) && isFinite(d.open) && isFinite(d.high) && isFinite(d.low) && isFinite(d.close);
+    });
+    try {
+        candleSeries.setData(safe.map(function (d) {
+            return { time: d.time, open: d.open, high: d.high, low: d.low, close: d.close };
+        }));
+    } catch (e) { console.warn('setChartData error:', e); }
 
-    var volData = newData.map(function (d) {
+    var volData = safe.map(function (d) {
         return { time: d.time, value: d.volume, color: d.close >= d.open ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)' };
     });
-    volumeSeries.setData(volData);
+    try { volumeSeries.setData(volData); } catch (e) { console.warn('vol setData:', e); }
 
-    marketPriceLine.applyOptions({ price: newData[newData.length - 1].close });
-    chart.timeScale().fitContent();
+    if (safe.length > 0) {
+        try { marketPriceLine.applyOptions({ price: safe[safe.length - 1].close }); } catch (_) {}
+    }
+    try { chart.timeScale().fitContent(); } catch (_) {}
 }
 
 export function updateCandleOnChart(candle) {

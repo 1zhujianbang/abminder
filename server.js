@@ -7,6 +7,10 @@ var http = require('http');
 var https = require('https');
 var fs = require('fs');
 var path = require('path');
+var dns = require('dns');
+
+// Fix DNS resolution for Chinese domains (Node.js on Windows may not resolve domestic CDNs)
+dns.setServers(['114.114.114.114', '223.5.5.5', '8.8.8.8', '1.1.1.1']);
 
 var PORT = 3456;
 var pendingActions = [];
@@ -113,6 +117,25 @@ var server = http.createServer(function (req, res) {
         return;
     }
 
+    // GET /api/akshare — A-share market data via Python bridge
+    if (req.method === 'GET' && pathname === '/api/akshare') {
+        var symbol = url.searchParams.get('symbol');
+        var period = url.searchParams.get('period') || '60';
+        var limit = url.searchParams.get('limit') || '300';
+        if (!symbol) { res.writeHead(400); res.end('Missing symbol'); return; }
+        var cp = require('child_process');
+        cp.execFile('python', [path.join(__dirname, 'akshare_bridge.py'), symbol, period, limit], { timeout: 30000 }, function (err, stdout) {
+            if (err) {
+                res.writeHead(502, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: err.message }));
+                return;
+            }
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(stdout);
+        });
+        return;
+    }
+
     // GET /api/health
     if (req.method === 'GET' && pathname === '/api/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -191,7 +214,7 @@ var server = http.createServer(function (req, res) {
             return;
         }
         // Only allow specific hosts for security
-        var allowedHosts = ['query1.finance.yahoo.com', 'push2his.eastmoney.com', 'push2.eastmoney.com', 'stooq.com', 'api.nasdaq.com'];
+        var allowedHosts = ['query1.finance.yahoo.com', 'push2his.eastmoney.com', 'push2.eastmoney.com', 'stooq.com', 'api.nasdaq.com', 'web.ifzq.gtimg.cn', 'ifzq.gtimg.cn', 'web.sqt.gtimg.cn', 'qt.gtimg.cn'];
         try {
             var parsed = new URL(targetUrl);
             if (allowedHosts.indexOf(parsed.host) === -1) {
@@ -205,17 +228,30 @@ var server = http.createServer(function (req, res) {
             return;
         }
         var proxiedUrl = new URL(targetUrl);
+        var proxyHostname = proxiedUrl.hostname;
+
+        // For specific hosts with DNS/TLS issues, resolve IP manually
+        var dnsFixHosts = { 'push2his.eastmoney.com': '140.207.67.156', 'push2.eastmoney.com': '61.129.129.196' };
+        var isDnsFix = dnsFixHosts[proxyHostname];
+
         var proxyMod = proxiedUrl.protocol === 'https:' ? https : http;
         var proxyOpts = {
-            hostname: proxiedUrl.hostname, path: proxiedUrl.pathname + proxiedUrl.search,
+            hostname: isDnsFix || proxyHostname,
+            path: proxiedUrl.pathname + proxiedUrl.search,
             method: 'GET',
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'application/json, text/plain, */*',
                 'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-                'Referer': 'https://www.nasdaq.com/',
+                'Referer': 'https://quote.eastmoney.com/',
+                'Host': proxyHostname,
             },
         };
+        // For HTTPS with manual IP, set servername for SNI
+        if (isDnsFix && proxiedUrl.protocol === 'https:') {
+            proxyOpts.servername = proxyHostname;
+            proxyOpts.rejectUnauthorized = false;
+        }
         var proxyReq = proxyMod.request(proxyOpts, function (proxyRes) {
             var body = '';
             proxyRes.on('data', function (chunk) { body += chunk; });

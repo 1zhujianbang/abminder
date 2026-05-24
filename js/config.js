@@ -148,12 +148,12 @@ export const MARKET_CONFIG = {
         catFilter: ['加密货币', '大宗商品', 'ETF', '美股'],
     },
     '美股市场': {
-        dataSource: 'nasdaq',
+        dataSource: 'finnhub',
         newsSource: 'finnhub-news',
         catFilter: ['美股'],
     },
     'A股市场': {
-        dataSource: 'eastmoney',
+        dataSource: 'akshare',
         newsSource: 'eastmoney-news',
         catFilter: ['A股'],
     },
