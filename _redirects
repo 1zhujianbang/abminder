@@ -1,0 +1,3 @@
+# Cloudflare Pages redirects
+# API routes are handled by Functions
+/api/*  /api/:splat  200
