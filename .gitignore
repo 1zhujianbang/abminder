@@ -13,5 +13,17 @@ Thumbs.db
 .agents/
 skills-lock.json
 
+# Dependencies
+node_modules/
+
+# Logs
+server.log
+
 # Local data
 *.local.json
+
+# Data files - only track example data
+data/*
+!data/signals.json
+!data/drawings.json
+!data/bookmarks.json

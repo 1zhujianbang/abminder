@@ -1,0 +1,24 @@
+{
+  "newsflash": [
+    {
+      "id": 483734,
+      "title": "1011内幕巨鲸代理人Garrett Jin将HYPE持仓增至144183枚，价值903万美元",
+      "content": "链上监测显示，\"1011内幕巨鲸\"代理人Garrett Jin将HYPE持仓增至144183枚，价值约903万美元。该地址同时持有BTC 5倍多单和ZEC 3倍空单，总浮亏超180万美元。",
+      "publishTimestamp": 1779634800
+    },
+    {
+      "id": 483726,
+      "title": "市场分析：ETH技术面看跌楔形目标1600美元",
+      "content": "ETH日线形成看跌楔形结构，若跌破2300支撑，技术目标指向1600美元区域。",
+      "publishTimestamp": 1779631200
+    }
+  ],
+  "article": [
+    {
+      "id": 52001,
+      "title": "深度解析 Hyperliquid 生态发展现状",
+      "summary": "Hyperliquid 作为新兴衍生品交易平台，近期TVL持续增长，HYPE代币价格创历史新高。本文从技术、社区、代币经济等维度全面分析其发展现状与前景。",
+      "publishTimestamp": 1779600000
+    }
+  ]
+}

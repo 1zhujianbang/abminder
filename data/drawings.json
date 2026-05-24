@@ -1,0 +1,62 @@
+{
+  "BTC-PERP": [
+    { "price": 75500, "color": "#26a69a" },
+    { "price": 73718, "color": "#26a69a" },
+    { "price": 77500, "color": "#ef5350" },
+    { "price": 79000, "color": "#ef5350" },
+    { "price": 81000, "color": "#ef5350" }
+  ],
+  "ETH-PERP": [
+    { "price": 2078, "color": "#26a69a" },
+    { "price": 2008, "color": "#26a69a" },
+    { "price": 2130, "color": "#ef5350" },
+    { "price": 2200, "color": "#ef5350" },
+    { "price": 2300, "color": "#ef5350" }
+  ],
+  "SOL-PERP": [
+    { "price": 84.4, "color": "#26a69a" },
+    { "price": 83.0, "color": "#26a69a" },
+    { "price": 81.35, "color": "#26a69a" },
+    { "price": 87.5, "color": "#ef5350" },
+    { "price": 92.0, "color": "#ef5350" },
+    { "price": 98.4, "color": "#ef5350" }
+  ],
+  "HYPE-PERP": [
+    { "price": 58.6, "color": "#26a69a" },
+    { "price": 54.0, "color": "#26a69a" },
+    { "price": 47.0, "color": "#26a69a" },
+    { "price": 64.3, "color": "#ef5350" },
+    { "price": 66.0, "color": "#ef5350" }
+  ],
+  "ZEC-PERP": [
+    { "price": 623, "color": "#26a69a" },
+    { "price": 580, "color": "#26a69a" },
+    { "price": 572, "color": "#26a69a" },
+    { "price": 688, "color": "#ef5350" },
+    { "price": 700, "color": "#ef5350" }
+  ],
+  "BNB-PERP": [
+    { "price": 634, "color": "#26a69a" },
+    { "price": 622, "color": "#26a69a" },
+    { "price": 614, "color": "#26a69a" },
+    { "price": 662, "color": "#ef5350" },
+    { "price": 672, "color": "#ef5350" },
+    { "price": 690, "color": "#ef5350" }
+  ],
+  "ASTER-PERP": [
+    { "price": 0.6719, "color": "#26a69a" },
+    { "price": 0.6575, "color": "#26a69a" },
+    { "price": 0.647, "color": "#26a69a" },
+    { "price": 0.712, "color": "#ef5350" },
+    { "price": 0.736, "color": "#ef5350" },
+    { "price": 0.746, "color": "#ef5350" }
+  ],
+  "PUMP-PERP": [
+    { "price": 0.001712, "color": "#26a69a" },
+    { "price": 0.001666, "color": "#26a69a" },
+    { "price": 0.001609, "color": "#26a69a" },
+    { "price": 0.00178, "color": "#ef5350" },
+    { "price": 0.00185, "color": "#ef5350" },
+    { "price": 0.00195, "color": "#ef5350" }
+  ]
+}

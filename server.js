@@ -92,15 +92,18 @@ var server = http.createServer(function (req, res) {
         return;
     }
 
-    // GET /api/data/:name — read a local json file from data/
+    // GET /api/data/:name — read a json file from data/
+    // Priority: .local.json (user data) > .json (example data) > {}
     var dataMatch = pathname.match(/^\/api\/data\/(\w+)$/);
     if (req.method === 'GET' && dataMatch) {
-        var fileName = dataMatch[1] + '.local.json';
-        var filePath2 = path.join(__dirname, 'data', fileName);
-        fs.readFile(filePath2, 'utf8', function (err, data) {
+        var localPath = path.join(__dirname, 'data', dataMatch[1] + '.local.json');
+        var examplePath = path.join(__dirname, 'data', dataMatch[1] + '.json');
+        fs.readFile(localPath, 'utf8', function (err, data) {
             if (err) {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end('{}');
+                fs.readFile(examplePath, 'utf8', function (err2, exampleData) {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(err2 ? '{}' : exampleData);
+                });
             } else {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(data);
@@ -116,6 +119,7 @@ var server = http.createServer(function (req, res) {
         var body = '';
         req.on('data', function (chunk) { body += chunk; });
         req.on('end', function () {
+            try { body = JSON.stringify(JSON.parse(body), null, 2); } catch (_) {}
             fs.writeFile(filePath2, body, 'utf8', function (err) {
                 res.writeHead(err ? 500 : 200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ ok: !err }));
