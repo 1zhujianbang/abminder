@@ -1,13 +1,73 @@
 // ============================================================
 // Remote Control — Browser polling + window.remote API
 // ============================================================
-import { state, pinnedTime, setPinnedTime, setStorageAPI, loadSignals, saveSignals, loadBookmarks, saveBookmarks, loadDrawings, saveDrawings, addDrawLine, updateNote, pushHist } from './state.js';
-import { updateOHLCBar, updateMarkers } from './chart.js';
+import { state, pinnedTime, setPinnedTime, setStorageAPI, loadSignals, saveSignals, loadBookmarks, saveBookmarks, loadDrawings, saveDrawings, addDrawLine, updateNote, pushHist, nfBookmarks, artBookmarks, drawLines } from './state.js';
+import { updateOHLCBar, updateMarkers, renderDrawings } from './chart.js';
 import { showToast, updateNoteArea, renderAll, handleSignalClick, dom } from './ui.js';
-import { SIGNAL_CFG } from './config.js';
+import { SIGNAL_CFG, STORAGE_KEY, BOOKMARK_KEY } from './config.js';
 
 var pollInterval = null;
 var deferredActions = [];
+
+// ============================================================
+// Static hosting fallback (load example data from /data/*.json)
+// ============================================================
+
+function loadStaticData() {
+    fetch('/data/signals.json').then(function (r) { return r.json(); }).then(function (data) {
+        if (!data || Object.keys(data).length === 0) return;
+        var existing = {};
+        try { existing = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (_) {}
+        for (var sym in data) {
+            if (!existing[sym]) existing[sym] = {};
+            for (var t in data[sym]) {
+                if (!existing[sym][t]) existing[sym][t] = data[sym][t];
+            }
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+    }).catch(function () {});
+
+    fetch('/data/bookmarks.json').then(function (r) { return r.json(); }).then(function (data) {
+        if (!data) return;
+        var existing = {};
+        try { existing = JSON.parse(localStorage.getItem(BOOKMARK_KEY) || '{}'); } catch (_) {}
+        var nfAdd = (data.newsflash || []).filter(function (item) {
+            var id = item.link || item.publishTimestamp || '';
+            return id && !(existing.newsflash || []).some(function (b) { return (b.link || b.publishTimestamp || '') === id; });
+        });
+        var artAdd = (data.article || []).filter(function (item) {
+            var id = item.link || item.publishTimestamp || '';
+            return id && !(existing.article || []).some(function (b) { return (b.link || b.publishTimestamp || '') === id; });
+        });
+        existing.newsflash = (existing.newsflash || []).concat(nfAdd);
+        existing.article = (existing.article || []).concat(artAdd);
+        localStorage.setItem(BOOKMARK_KEY, JSON.stringify(existing));
+    }).catch(function () {});
+
+    fetch('/data/drawings.json').then(function (r) { return r.json(); }).then(function (data) {
+        if (!data || Object.keys(data).length === 0) return;
+        var existing = {};
+        try { existing = JSON.parse(localStorage.getItem('trading_drawings') || '{}'); } catch (_) {}
+        for (var sym in data) {
+            if (!existing[sym]) existing[sym] = [];
+            data[sym].forEach(function (line) {
+                if (!existing[sym].some(function (l) { return l.price === line.price && l.color === line.color; })) {
+                    existing[sym].push(line);
+                }
+            });
+        }
+        localStorage.setItem('trading_drawings', JSON.stringify(existing));
+    }).catch(function () {});
+
+    // Reload from localStorage and render
+    setTimeout(function () {
+        loadSignals();
+        loadBookmarks();
+        loadDrawings();
+        renderAll();
+        showToast('离线模式 - 已加载示例数据', 'info');
+    }, 500);
+}
 
 // ============================================================
 // Polling
@@ -33,7 +93,13 @@ export function startRemotePoll() {
         ? 'http://localhost:3456' : '';
     var pollUrl = base + '/api/poll';
     var connected = false;
+    var offline = false;
     pollInterval = setInterval(function () {
+        if (offline) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+            return;
+        }
         // Process all ready deferred actions
         while (processDeferred());
 
@@ -62,8 +128,17 @@ export function startRemotePoll() {
             // After processing new actions, process all ready deferred
             while (processDeferred());
         }).catch(function () {
-            connected = false;
-            setStorageAPI(null);
+            if (!connected) {
+                connected = false;
+                setStorageAPI(null);
+                // Static hosting: load example data once, go offline
+                if (!base) {
+                    offline = true;
+                    loadStaticData();
+                } else {
+                    // Local server not running, retry later
+                }
+            }
         });
     }, 1500);
 }
