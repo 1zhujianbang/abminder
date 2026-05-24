@@ -6,5 +6,8 @@
   "scripts": {
     "dev": "node server.js",
     "deploy": "npx wrangler pages deploy . --project-name=abminder"
+  },
+  "dependencies": {
+    "nodemailer": "^8.0.8"
   }
 }

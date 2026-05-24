@@ -66,6 +66,12 @@ import {
   articleCategory,
   generateArticleImage,
 } from "./api-odaily.js";
+import {
+  settings,
+  saveSettings,
+  resetSettings,
+  getDefault,
+} from "./settings.js";
 
 // ============================================================
 // Toast
@@ -1088,6 +1094,16 @@ export function renderExtraTools() {
     document.dispatchEvent(new CustomEvent("marketchange", { detail: { market: this.value } }));
   });
   right.appendChild(marketSel);
+
+  var settingsBtn = document.createElement("button");
+  settingsBtn.className = "tool-btn";
+  settingsBtn.id = "btn-settings";
+  settingsBtn.title = "设置";
+  settingsBtn.textContent = "⚙";
+  settingsBtn.addEventListener("click", function () {
+    document.dispatchEvent(new CustomEvent("opensettings"));
+  });
+  right.appendChild(settingsBtn);
 }
 
 // ============================================================
@@ -1487,7 +1503,8 @@ export function initPickerButtons() {
           !picker.contains(e.target) &&
           e.target.id !== "btn-ins-flash" &&
           e.target.id !== "btn-ins-article" &&
-          e.target.id !== "btn-ins-note"
+          e.target.id !== "btn-ins-note" &&
+          e.target.id !== "btn-settings"
         )
           picker.classList.add("hidden");
       });
@@ -1537,6 +1554,308 @@ export function addFullscreenButton() {
     }, 150);
   });
   document.getElementById("chart-container").appendChild(fsExit);
+}
+
+// ============================================================
+// Settings Panel
+// ============================================================
+
+function getNested(obj, path) {
+  return path.split(".").reduce(function (o, k) {
+    return o && o[k] !== undefined ? o[k] : "";
+  }, obj);
+}
+
+function setNested(obj, path, val) {
+  var parts = path.split(".");
+  var last = parts.pop();
+  var target = parts.reduce(function (o, k) {
+    return o[k];
+  }, obj);
+  target[last] = val;
+}
+
+function buildField(name, label, type, value, extra) {
+  var id = "set-" + name.replace(/\./g, "-");
+  var html = '<div class="settings-row">';
+  html += '<label for="' + id + '">' + label + "</label>";
+  if (type === "checkbox") {
+    html +=
+      '<input type="checkbox" id="' +
+      id +
+      '" data-path="' +
+      name +
+      '"' +
+      (value ? " checked" : "") +
+      ">";
+  } else if (type === "color") {
+    html +=
+      '<input type="color" id="' +
+      id +
+      '" data-path="' +
+      name +
+      '" value="' +
+      value +
+      '">';
+  } else if (type === "select") {
+    html +=
+      '<select id="' + id + '" data-path="' + name + '">';
+    extra.forEach(function (o) {
+      html +=
+        '<option value="' +
+        o.value +
+        '"' +
+        (o.value === value ? " selected" : "") +
+        ">" +
+        o.label +
+        "</option>";
+    });
+    html += "</select>";
+  } else if (type === "password") {
+    html +=
+      '<input type="password" id="' +
+      id +
+      '" data-path="' +
+      name +
+      '" value="' +
+      (value || "") +
+      '" placeholder="' +
+      (extra || "") +
+      '">';
+  } else {
+    html +=
+      '<input type="' +
+      type +
+      '" id="' +
+      id +
+      '" data-path="' +
+      name +
+      '" value="' +
+      value +
+      '">';
+  }
+  html += "</div>";
+  return html;
+}
+
+export function renderSettings() {
+  var body = document.getElementById("settings-body");
+  if (!body) return;
+
+  var html = "";
+
+  // === 交易设置 ===
+  html += '<div class="settings-section">';
+  html += '<div class="settings-section-title">交易设置</div>';
+
+  // defaultSymbol dropdown from SYMBOLS + A_SYMBOLS
+  html += '<div class="settings-row"><label for="set-defaultSymbol">默认交易对</label>';
+  html += '<select id="set-defaultSymbol" data-path="defaultSymbol">';
+  var allSymbols = SYMBOLS.concat(A_SYMBOLS);
+  allSymbols.forEach(function (s) {
+    html += '<option value="' + s.name + '"' + (s.name === settings.defaultSymbol ? " selected" : "") + ">" + s.label + "</option>";
+  });
+  html += "</select></div>";
+
+  // defaultTimeframe dropdown from TIMEFRAMES
+  html += '<div class="settings-row"><label for="set-defaultTimeframe">默认周期</label>';
+  html += '<select id="set-defaultTimeframe" data-path="defaultTimeframe">';
+  TIMEFRAMES.forEach(function (tf) {
+    html += '<option value="' + tf.value + '"' + (tf.value === settings.defaultTimeframe ? " selected" : "") + ">" + tf.label + "</option>";
+  });
+  html += "</select></div>";
+
+  // candleLimit dropdown
+  html += '<div class="settings-row"><label for="set-candleLimit">K线加载数量</label>';
+  html += '<select id="set-candleLimit" data-path="candleLimit">';
+  [100, 300, 500, 750, 1000, 2000].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.candleLimit === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += "</div>";
+
+  // === 显示设置 ===
+  html += '<div class="settings-section">';
+  html += '<div class="settings-section-title">显示设置</div>';
+  html += buildField("volumeVisible", "显示成交量", "checkbox", settings.volumeVisible);
+  html += buildField("priceFormat", "价格格式", "select", settings.priceFormat, [
+    { value: "auto", label: "自动" },
+    { value: "fixed", label: "固定小数" },
+    { value: "precision", label: "有效数字" },
+  ]);
+  // chartFontSize dropdown
+  html += '<div class="settings-row"><label for="set-chartFontSize">字体大小</label>';
+  html += '<select id="set-chartFontSize" data-path="chartFontSize">';
+  [9, 10, 11, 12, 13, 14, 16].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.chartFontSize === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += '<div class="settings-row"><label>主题颜色</label>';
+  html += '<div class="settings-color-group">';
+  var themeFields = [
+    ["chartTheme.bg", "背景"],
+    ["chartTheme.text", "文字"],
+    ["chartTheme.grid", "网格"],
+    ["chartTheme.border", "边框"],
+    ["chartTheme.up", "涨"],
+    ["chartTheme.down", "跌"],
+  ];
+  themeFields.forEach(function (f) {
+    html +=
+      '<span class="settings-color-item">' +
+      f[1] +
+      " <input type=\"color\" data-path=\"" +
+      f[0] +
+      '" value="' +
+      getNested(settings, f[0]) +
+      '"></span>';
+  });
+  html += "</div></div>";
+  html += "</div>";
+
+  // === 信号设置 ===
+  html += '<div class="settings-section">';
+  html += '<div class="settings-section-title">信号设置</div>';
+  html += buildField("signalColors.buy", "买入颜色", "color", settings.signalColors.buy);
+  html += buildField("signalColors.hold", "持有颜色", "color", settings.signalColors.hold);
+  html += buildField("signalColors.sell", "卖出颜色", "color", settings.signalColors.sell);
+  html += buildField("showStructures", "显示波段结构", "checkbox", settings.showStructures);
+  html += "</div>";
+
+  // === 通知设置 ===
+  html += '<div class="settings-section">';
+  html += '<div class="settings-section-title">通知设置</div>';
+  html += buildField("emailEnabled", "启用邮件通知", "checkbox", settings.emailEnabled);
+  html += buildField("notifyOn", "通知触发", "select", settings.notifyOn, [
+    { value: "high_confidence", label: "仅高置信度" },
+    { value: "all", label: "全部信号" },
+  ]);
+  html += buildField("email.host", "SMTP 服务器", "text", settings.email.host);
+  // email.port dropdown
+  html += '<div class="settings-row"><label for="set-email-port">SMTP 端口</label>';
+  html += '<select id="set-email-port" data-path="email.port">';
+  [25, 465, 587, 2525].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.email.port === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += buildField("email.user", "邮箱账号", "text", settings.email.user);
+  html += buildField("email.pass", "邮箱密码", "password", settings.email.pass);
+  html += buildField("email.to", "接收邮箱", "text", settings.email.to);
+  html += "</div>";
+
+  // === 数据源 ===
+  html += '<div class="settings-section">';
+  html += '<div class="settings-section-title">数据源</div>';
+  html += buildField("exchangeOrder", "交易所优先级", "text",
+    Array.isArray(settings.exchangeOrder) ? settings.exchangeOrder.join(",") : settings.exchangeOrder);
+  html += '<div class="settings-row"><span class="settings-hint">用逗号分隔: okx,binance,hyperliquid,yahoo,akshare,eastmoney</span></div>';
+  html += "</div>";
+
+  // === 实时行情 ===
+  html += '<div class="settings-section">';
+  html += '<div class="settings-section-title">实时行情</div>';
+  html += buildField("realtimeEnabled", "启用实时", "checkbox", settings.realtimeEnabled);
+  // Interval/timeout dropdowns
+  html += '<div class="settings-row"><label for="set-wsReconnectDelay">WS重连(ms)</label>';
+  html += '<select id="set-wsReconnectDelay" data-path="wsReconnectDelay">';
+  [1000, 2000, 3000, 5000, 10000].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.wsReconnectDelay === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += '<div class="settings-row"><label for="set-restPollInterval">REST轮询(ms)</label>';
+  html += '<select id="set-restPollInterval" data-path="restPollInterval">';
+  [200, 500, 1000, 2000, 5000].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.restPollInterval === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += '<div class="settings-row"><label for="set-okxWsTimeout">OKX超时(ms)</label>';
+  html += '<select id="set-okxWsTimeout" data-path="okxWsTimeout">';
+  [2000, 5000, 10000, 30000].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.okxWsTimeout === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += '<div class="settings-row"><label for="set-remotePollInterval">远程轮询(ms)</label>';
+  html += '<select id="set-remotePollInterval" data-path="remotePollInterval">';
+  [500, 1000, 1500, 2000, 5000].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.remotePollInterval === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += "</div>";
+
+  // === 其他 ===
+  html += '<div class="settings-section">';
+  html += '<div class="settings-section-title">其他</div>';
+  html += '<div class="settings-row"><label for="set-undoDepth">撤销深度</label>';
+  html += '<select id="set-undoDepth" data-path="undoDepth">';
+  [10, 20, 50, 100, 200].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.undoDepth === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += '<div class="settings-row"><label for="set-newsflashPageSize">快讯每页数量</label>';
+  html += '<select id="set-newsflashPageSize" data-path="newsflashPageSize">';
+  [10, 20, 30, 50, 100].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.newsflashPageSize === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += '<div class="settings-row"><label for="set-articlePageSize">文章每页数量</label>';
+  html += '<select id="set-articlePageSize" data-path="articlePageSize">';
+  [10, 20, 30, 50, 100].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.articlePageSize === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += '<div class="settings-row"><label for="set-searchPageSize">搜索每页数量</label>';
+  html += '<select id="set-searchPageSize" data-path="searchPageSize">';
+  [10, 20, 50, 100].forEach(function (v) {
+    html += '<option value="' + v + '"' + (settings.searchPageSize === v ? " selected" : "") + ">" + v + "</option>";
+  });
+  html += "</select></div>";
+  html += "</div>";
+
+  body.innerHTML = html;
+
+  // Bind change events
+  body.querySelectorAll("input, select").forEach(function (el) {
+    el.addEventListener("change", function () {
+      var path = this.dataset.path;
+      if (!path) return;
+      var val;
+      if (this.type === "checkbox") {
+        val = this.checked;
+      } else if (this.type === "number") {
+        val = parseFloat(this.value);
+        if (isNaN(val)) val = this.value;
+      } else {
+        val = this.value;
+        // exchangeOrder: comma-separated string → array
+        if (path === "exchangeOrder" && typeof val === "string") {
+          val = val
+            .split(",")
+            .map(function (s) { return s.trim(); })
+            .filter(Boolean);
+        } else if (
+          this.tagName === "SELECT" &&
+          val !== "" &&
+          !isNaN(val)
+        ) {
+          // Convert numeric select values to numbers
+          val = parseFloat(val);
+        }
+      }
+      setNested(settings, path, val);
+      saveSettings();
+      document.getElementById("settings-status").textContent = "✓ 已保存";
+    });
+  });
+
+  // Reset button
+  var resetBtn = document.getElementById("btn-settings-reset");
+  if (resetBtn) {
+    resetBtn.onclick = function () {
+      resetSettings();
+      renderSettings();
+      document.getElementById("settings-status").textContent = "✓ 已恢复默认";
+    };
+  }
 }
 
 // ============================================================

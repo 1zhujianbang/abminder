@@ -7,10 +7,17 @@ var http = require('http');
 var https = require('https');
 var fs = require('fs');
 var path = require('path');
-var dns = require('dns');
+var nodemailer = null;
+try { nodemailer = require('nodemailer'); } catch (_) {}
 
-// Fix DNS resolution for Chinese domains (Node.js on Windows may not resolve domestic CDNs)
-dns.setServers(['114.114.114.114', '223.5.5.5', '8.8.8.8', '1.1.1.1']);
+// Load email config
+var emailConfig = {};
+var emailConfigPath = path.join(__dirname, 'email-config.local.json');
+try { emailConfig = JSON.parse(fs.readFileSync(emailConfigPath, 'utf8')); } catch (_) {}
+function saveEmailConfig(cfg) {
+    emailConfig = cfg;
+    fs.writeFileSync(emailConfigPath, JSON.stringify(cfg, null, 2), 'utf8');
+}
 
 var PORT = 3456;
 var pendingActions = [];
@@ -175,6 +182,60 @@ var server = http.createServer(function (req, res) {
         return;
     }
 
+    // GET /api/odaily — Odaily news proxy (DNS fix for China)
+    if (req.method === 'GET' && pathname === '/api/odaily') {
+        var odPath = url.searchParams.get('path') || 'newsflash?page=1&size=15&lang=zh-cn';
+        var odUrl = 'https://api.odaily.news/api/v1/' + odPath;
+        var odParsed = new URL(odUrl);
+        var odReq = https.request({
+            hostname: odParsed.hostname, path: odParsed.pathname + odParsed.search,
+            method: 'GET',
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+        }, function (odRes) {
+            var b = '';
+            odRes.on('data', function (c) { b += c; });
+            odRes.on('end', function () {
+                res.writeHead(odRes.statusCode, { 'Content-Type': 'application/json' });
+                res.end(b);
+            });
+        });
+        odReq.on('error', function (e) {
+            res.writeHead(502);
+            res.end(JSON.stringify({ error: e.message }));
+        });
+        odReq.end();
+        return;
+    }
+
+    // POST /api/ohlcv — Hyperliquid OHLCV proxy (for dynamic monitor levels)
+    if (req.method === 'POST' && pathname === '/api/ohlcv') {
+        var body = '';
+        req.on('data', function (chunk) { body += chunk; });
+        req.on('end', function () {
+            var hlOpts = {
+                hostname: 'api.hyperliquid.xyz',
+                path: '/info',
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+            };
+            var hlReq = https.request(hlOpts, function (hlRes) {
+                var b = '';
+                hlRes.on('data', function (c) { b += c; });
+                hlRes.on('end', function () {
+                    res.writeHead(hlRes.statusCode, { 'Content-Type': 'application/json' });
+                    res.end(b);
+                });
+            });
+            hlReq.on('error', function (e) {
+                res.writeHead(502);
+                res.end(JSON.stringify({ error: e.message }));
+            });
+            hlReq.write(body);
+            hlReq.end();
+        });
+        return;
+    }
+
     // GET /api/nasdaq — NASDAQ historical data proxy (CORS workaround)
     if (req.method === 'GET' && pathname === '/api/nasdaq') {
         var symbol = url.searchParams.get('symbol');
@@ -263,6 +324,69 @@ var server = http.createServer(function (req, res) {
         proxyReq.on('error', function (e) {
             res.writeHead(502);
             res.end(e.message);
+        });
+        return;
+    }
+
+    // POST /api/email/send — send email notification
+    if (req.method === 'POST' && pathname === '/api/email/send') {
+        var body = '';
+        req.on('data', function (chunk) { body += chunk; });
+        req.on('end', function () {
+            try {
+                var data = JSON.parse(body);
+                var subject = data.subject || 'abminder 通知';
+                var text = data.text || '';
+                if (!nodemailer || !emailConfig.user || !emailConfig.pass) {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ ok: false, error: '邮件未配置' }));
+                    return;
+                }
+                var transporter = nodemailer.createTransport({
+                    host: emailConfig.host || 'smtp.qq.com',
+                    port: emailConfig.port || 465,
+                    secure: emailConfig.port !== 587,
+                    auth: { user: emailConfig.user, pass: emailConfig.pass },
+                });
+                transporter.sendMail({
+                    from: emailConfig.user, to: emailConfig.to || emailConfig.user,
+                    subject: subject, text: text,
+                }, function (err, info) {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify(err ? { ok: false, error: err.message } : { ok: true }));
+                });
+            } catch (e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: e.message }));
+            }
+        });
+        return;
+    }
+
+    // GET /api/email/config — read email config (without password)
+    if (req.method === 'GET' && pathname === '/api/email/config') {
+        var safe = Object.assign({}, emailConfig);
+        if (safe.pass) safe.pass = '******';
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(safe));
+        return;
+    }
+
+    // POST /api/email/config — save email config
+    if (req.method === 'POST' && pathname === '/api/email/config') {
+        var body = '';
+        req.on('data', function (chunk) { body += chunk; });
+        req.on('end', function () {
+            try {
+                var cfg = JSON.parse(body);
+                if (cfg.pass === '******') cfg.pass = emailConfig.pass;
+                saveEmailConfig(cfg);
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ ok: true }));
+            } catch (e) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: e.message }));
+            }
         });
         return;
     }

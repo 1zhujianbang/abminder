@@ -27,6 +27,10 @@ if (!action) {
     console.log('  reload');
     console.log('  import ./signals.json');
     console.log('  exec "remote.pinLatest(); remote.addSignal(\\"buy\\")"');
+    console.log('');
+    console.log('环境变量:');
+    console.log('  REMOTE_SYMBOL=ZEC-PERP  - 指定信号所属标的（防混淆）');
+    console.log('  例: REMOTE_SYMBOL=ZEC-PERP node remote.js signal-latest hold "分析" technical');
     process.exit(0);
 }
 
@@ -61,9 +65,15 @@ function send(data) {
 
 var cmds = {
     toast: function () { return send({ type: 'toast', msg: args[1] || '' }); },
-    signal: function () { return send({ type: 'signal', signalType: args[1], note: args[2], category: args[3] }); },
+    signal: function () {
+        var data = { type: 'signal', signalType: args[1], note: args[2], category: args[3] };
+        if (process.env.REMOTE_SYMBOL) data.symbol = process.env.REMOTE_SYMBOL;
+        return send(data);
+    },
     'signal-latest': function () {
-        return send({ type: 'signal', target: 'latest', signalType: args[1], note: args[2], category: args[3] });
+        var data = { type: 'signal', target: 'latest', signalType: args[1], note: args[2], category: args[3] };
+        if (process.env.REMOTE_SYMBOL) data.symbol = process.env.REMOTE_SYMBOL;
+        return send(data);
     },
     symbol: function () { return send({ type: 'symbol', symbol: args[1] }); },
     reload: function () { return send({ type: 'reload' }); },

@@ -97,6 +97,21 @@
         <div id="note-picker-list" class="picker-list"></div>
     </div>
 
+    <!-- Settings modal -->
+    <div id="settings-overlay" class="picker-overlay hidden">
+        <div class="settings-panel">
+            <div class="settings-header">
+                <span>⚙ 设置</span>
+                <button class="picker-close">✕</button>
+            </div>
+            <div id="settings-body" class="settings-body"></div>
+            <div class="settings-footer">
+                <button id="btn-settings-reset" class="tool-btn" style="color:var(--down);">恢复默认</button>
+                <span id="settings-status" style="font-size:11px;color:var(--text);opacity:0.5;"></span>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast -->
     <div id="toast" class="toast"></div>
     <!-- Confirm dialog -->

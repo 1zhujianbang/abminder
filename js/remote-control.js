@@ -7,10 +7,21 @@ import { showToast, updateNoteArea, renderAll, handleSignalClick, dom } from './
 import { SIGNAL_CFG } from './config.js';
 
 var pollInterval = null;
+var deferredAction = null;
 
 // ============================================================
 // Polling
 // ============================================================
+
+function processDeferred() {
+    if (!deferredAction) return false;
+    if (state.symbol !== deferredAction.symbol) return false;
+    if (!state.data || state.data.length === 0) return false;
+    var a = deferredAction;
+    deferredAction = null;
+    executeRemoteAction(a);
+    return true;
+}
 
 export function startRemotePoll() {
     var base = window.location.origin === 'null' || window.location.protocol === 'file:'
@@ -18,6 +29,9 @@ export function startRemotePoll() {
     var pollUrl = base + '/api/poll';
     var connected = false;
     pollInterval = setInterval(function () {
+        // Try to process deferred action first
+        processDeferred();
+
         var statusUrl = base + '/api/status';
         fetch(pollUrl).then(function (r) { return r.json(); }).then(function (actions) {
             if (!connected) {
@@ -40,6 +54,8 @@ export function startRemotePoll() {
             }).catch(function () {});
             if (!actions || actions.length === 0) return;
             actions.forEach(function (a) { executeRemoteAction(a); });
+            // After processing new actions, try deferred again
+            processDeferred();
         }).catch(function () {
             connected = false;
             setStorageAPI(null);
@@ -51,6 +67,13 @@ function executeRemoteAction(a) {
     if (!a || !a.type) return;
     switch (a.type) {
         case 'signal':
+            // Symbol mismatch: defer and switch to correct symbol
+            if (a.symbol && a.symbol !== state.symbol) {
+                deferredAction = a;
+                document.dispatchEvent(new CustomEvent('symbolchange', { detail: { symbol: a.symbol } }));
+                showToast('远程: 切换到 ' + a.symbol, 'info');
+                break;
+            }
             if (a.target === 'latest') {
                 if (!state.data || state.data.length === 0) break;
                 var c = state.data[state.data.length - 1];
