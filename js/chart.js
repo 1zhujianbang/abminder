@@ -46,11 +46,21 @@ export function initChart(containerEl) {
         handleScroll: { vertTouchDrag: false },
     });
 
+    function formatPriceLabel(price) {
+        if (price === undefined || price === null) return '--';
+        var abs = Math.abs(price);
+        if (abs >= 10000) return price.toFixed(1);
+        if (abs >= 10) return price.toFixed(2);
+        if (abs >= 0.1) return price.toFixed(4);
+        if (abs >= 0.001) return price.toFixed(6);
+        return price.toFixed(8);
+    }
+
     candleSeries = chart.addCandlestickSeries({
         upColor: theme.up, downColor: theme.down,
         borderUpColor: theme.up, borderDownColor: theme.down,
         wickUpColor: theme.up, wickDownColor: theme.down,
-        priceFormat: { type: 'price', minMove: 0.1 },
+        priceFormat: { type: 'custom', minMove: 0.000001, formatter: formatPriceLabel },
     });
 
     volumeSeries = chart.addHistogramSeries({
@@ -99,9 +109,7 @@ export function setChartData(newData) {
     });
     volumeSeries.setData(volData);
 
-    if (newData.length > 0) {
-        marketPriceLine.applyOptions({ price: newData[newData.length - 1].close });
-    }
+    marketPriceLine.applyOptions({ price: newData[newData.length - 1].close });
     chart.timeScale().fitContent();
 }
 
@@ -212,7 +220,7 @@ export function updateMarkers() {
         var sig = signals[timeStr];
         var cfg = SIGNAL_CFG[sig.type];
         if (!cfg) continue;
-        markers.push({ time: time, position: cfg.pos, shape: cfg.shape, color: cfg.color, text: cfg.label });
+        markers.push({ time: time, position: cfg.pos, shape: cfg.shape, color: cfg.color, text: cfg.label, size: 1 });
         var noteData = getNoteData(sig);
         if (noteData.text) {
             var cat = NOTE_CATEGORIES.find(function (c) { return c.key === noteData.category; }) || NOTE_CATEGORIES[NOTE_CATEGORIES.length - 1];

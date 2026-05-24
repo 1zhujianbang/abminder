@@ -72,6 +72,17 @@ export const SYMBOLS = [
     { name: 'URNM-PERP', label: 'URNM 铀矿ETF', cat: 'ETF' },
 ];
 
+export const A_SYMBOLS = [
+    { name: 'SH000001', label: '上证指数', cat: 'A股' },
+    { name: 'SZ399001', label: '深证成指', cat: 'A股' },
+    { name: 'SH600519', label: '贵州茅台', cat: 'A股' },
+    { name: 'SZ300750', label: '宁德时代', cat: 'A股' },
+    { name: 'SH601318', label: '中国平安', cat: 'A股' },
+    { name: 'SH600036', label: '招商银行', cat: 'A股' },
+    { name: 'SZ000858', label: '五粮液', cat: 'A股' },
+    { name: 'SH600900', label: '长江电力', cat: 'A股' },
+];
+
 export const TIMEFRAMES = [
     { value: 1, label: '1m' },
     { value: 5, label: '5m' },
@@ -83,7 +94,7 @@ export const TIMEFRAMES = [
 
 export const SIGNAL_CFG = {
     buy: { label: '买入', color: '#22c55e', shape: 'arrowUp', pos: 'belowBar' },
-    hold: { label: '观望', color: '#f59e0b', shape: 'diamond', pos: 'aboveBar' },
+    hold: { label: '观望', color: '#f59e0b', shape: 'circle', pos: 'aboveBar' },
     sell: { label: '卖出', color: '#ef4444', shape: 'arrowDown', pos: 'aboveBar' },
 };
 
@@ -129,6 +140,24 @@ export const ARTICLE_CATEGORIES = [
 ];
 
 export const CAT_ORDER = ['加密货币', '大宗商品', 'ETF', '美股'];
+
+export const MARKET_CONFIG = {
+    '加密市场': {
+        dataSource: 'okx',
+        newsSource: 'odaily',
+        catFilter: ['加密货币', '大宗商品', 'ETF', '美股'],
+    },
+    '美股市场': {
+        dataSource: 'nasdaq',
+        newsSource: 'finnhub-news',
+        catFilter: ['美股'],
+    },
+    'A股市场': {
+        dataSource: 'eastmoney',
+        newsSource: 'eastmoney-news',
+        catFilter: ['A股'],
+    },
+};
 
 // Binance WS mappings
 export const BINANCE_WS_SYMBOLS = {

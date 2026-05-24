@@ -2,6 +2,7 @@
 // Market Data API (OKX, Binance, Hyperliquid)
 // ============================================================
 import { state, setLastDirection, setLastPrice, candleLimit } from './state.js';
+import { MARKET_CONFIG } from './config.js';
 
 // --- Callbacks (set by main.js) ---
 export let onRealtimeUpdate = null;
@@ -17,7 +18,7 @@ export function setOnTitleUpdate(fn) { onTitleUpdate = fn; }
 var EXCHANGES = [];
 
 EXCHANGES.push({
-    id: 'okx', label: 'OKX', maxLimit: 2000,
+    id: 'okx', label: 'OKX', market: '加密市场', maxLimit: 2000,
     instMap: {
         'BTC-PERP': 'BTC-USDT-SWAP', 'ETH-PERP': 'ETH-USDT-SWAP', 'SOL-PERP': 'SOL-USDT-SWAP',
         'BNB-PERP': 'BNB-USDT-SWAP', 'HYPE-PERP': 'HYPE-USDT-SWAP', 'OKB-PERP': 'OKB-USDT-SWAP',
@@ -71,7 +72,7 @@ EXCHANGES.push({
 });
 
 EXCHANGES.push({
-    id: 'binance', label: 'Binance', maxLimit: 1500,
+    id: 'binance', label: 'Binance', market: '加密市场', maxLimit: 1500,
     instMap: { 'BTC-PERP': 'BTCUSDT', 'ETH-PERP': 'ETHUSDT', 'SOL-PERP': 'SOLUSDT', 'BNB-PERP': 'BNBUSDT', 'HYPE-PERP': 'HYPEUSDT', 'ZEC-PERP': 'ZECUSDT', 'XAU-PERP': 'PAXGUSDT' },
     tfMap: { 1: '1m', 5: '5m', 15: '15m', 60: '1h', 240: '4h', 1440: '1d' },
     fetchData: async function (instId, interval, limit) {
@@ -84,7 +85,7 @@ EXCHANGES.push({
 });
 
 EXCHANGES.push({
-    id: 'hyperliquid', label: 'Hyperliquid', maxLimit: 2000,
+    id: 'hyperliquid', label: 'Hyperliquid', market: '加密市场', maxLimit: 2000,
     instMap: { 'BTC-PERP': 'BTC', 'ETH-PERP': 'ETH', 'SOL-PERP': 'SOL', 'BNB-PERP': 'BNB', 'HYPE-PERP': 'HYPE', 'ZEC-PERP': 'ZEC' },
     tfMap: { 1: '1m', 5: '5m', 15: '15m', 60: '1h', 240: '4h', 1440: '1d' },
     fetchData: async function (coin, interval, limit) {
@@ -105,6 +106,82 @@ EXCHANGES.push({
     },
 });
 
+// --- US Stock market (NASDAQ API — daily data, no key) ---
+EXCHANGES.push({
+    id: 'nasdaq', label: 'NASDAQ', market: '美股市场', maxLimit: 500,
+    instMap: {
+        'AAPL-PERP': 'AAPL', 'AMD-PERP': 'AMD', 'AMZN-PERP': 'AMZN',
+        'AVGO-PERP': 'AVGO', 'COIN-PERP': 'COIN', 'COST-PERP': 'COST',
+        'GOOGL-PERP': 'GOOGL', 'INTC-PERP': 'INTC', 'LLY-PERP': 'LLY',
+        'META-PERP': 'META', 'MSFT-PERP': 'MSFT', 'MSTR-PERP': 'MSTR',
+        'MU-PERP': 'MU', 'NVDA-PERP': 'NVDA', 'PLTR-PERP': 'PLTR',
+        'TSLA-PERP': 'TSLA', 'TSM-PERP': 'TSM', 'QQQ-PERP': 'QQQ',
+        'SPY-PERP': 'SPY', 'IWM-PERP': 'IWM', 'GME-PERP': 'GME',
+        'HOOD-PERP': 'HOOD', 'NFLX-PERP': 'NFLX', 'ORCL-PERP': 'ORCL',
+        'ARM-PERP': 'ARM', 'CSCO-PERP': 'CSCO', 'MRVL-PERP': 'MRVL',
+        'QCOM-PERP': 'QCOM', 'RKLB-PERP': 'RKLB', 'HIMS-PERP': 'HIMS',
+        'NBIS-PERP': 'NBIS',
+    },
+    tfMap: { 1: 'daily', 5: 'daily', 15: 'daily', 60: 'daily', 240: 'daily', 1440: 'daily' },
+    fetchData: async function (symbol, interval, limit) {
+        // NASDAQ API only supports daily
+        if (interval !== 'daily') throw new Error('NASDAQ only supports daily timeframe');
+        var end = new Date();
+        var start = new Date(end);
+        start.setDate(start.getDate() - limit - 10);
+        var fmt = function(d) { return d.toISOString().slice(0, 10); };
+        var url = '/api/nasdaq?symbol=' + symbol + '&from=' + fmt(start) + '&limit=' + (limit + 10);
+        var r = await fetch(url);
+        if (!r.ok) throw new Error('NASDAQ HTTP ' + r.status);
+        var j = await r.json();
+        if (!j.data || !j.data.tradesTable || !j.data.tradesTable.rows) throw new Error('NASDAQ: no data');
+        var data = j.data.tradesTable.rows.map(function (row) {
+            var parts = row.date.split('/');
+            // date format: MM/DD/YYYY
+            var ts = Math.floor(new Date(parts[2], parts[0] - 1, parts[1]).getTime() / 1000);
+            var clean = function(v) { return parseFloat(String(v).replace(/[$,]/g, '')); };
+            return {
+                time: ts,
+                open: clean(row.open),
+                high: clean(row.high),
+                low: clean(row.low),
+                close: clean(row.close),
+                volume: parseInt(String(row.volume).replace(/,/g, '')) || 0,
+            };
+        }).filter(function(d) { return d.time > 0 && isFinite(d.open) && d.open > 0; });
+        return data.slice(-limit);
+    },
+});
+
+// --- China A-share market (East Money) ---
+EXCHANGES.push({
+    id: 'eastmoney', label: '东方财富', market: 'A股市场', maxLimit: 500,
+    instMap: {
+        'SH000001': { code: '1.000001', name: '上证指数' },
+        'SZ399001': { code: '0.399001', name: '深证成指' },
+        'SH600519': { code: '1.600519', name: '贵州茅台' },
+        'SZ300750': { code: '0.300750', name: '宁德时代' },
+        'SH601318': { code: '1.601318', name: '中国平安' },
+        'SH600036': { code: '1.600036', name: '招商银行' },
+        'SZ000858': { code: '0.000858', name: '五粮液' },
+        'SH600900': { code: '1.600900', name: '长江电力' },
+    },
+    tfMap: { 1: '1', 5: '5', 15: '15', 60: '60', 240: '240', 1440: '101' },
+    fetchData: async function (secId, interval, limit) {
+        var realUrl = 'https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=' + secId + '&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=' + interval + '&fqt=1&end=20500101&lmt=' + limit;
+        var r = await fetch('/api/proxy?url=' + encodeURIComponent(realUrl));
+        if (!r.ok) throw new Error('East Money HTTP ' + r.status);
+        var j = await r.json();
+        if (!j.data || !j.data.klines) throw new Error('East Money: no data');
+        return j.data.klines.map(function (line) {
+            var parts = line.split(',');
+            var timeStr = parts[0];
+            var ts = Math.floor(new Date(timeStr.replace(/-/g, '/')).getTime() / 1000);
+            return { time: ts, open: parseFloat(parts[1]), close: parseFloat(parts[2]), high: parseFloat(parts[3]), low: parseFloat(parts[4]), volume: parseFloat(parts[5]) };
+        }).filter(function (d) { return d.time > 0 && isFinite(d.open); });
+    },
+});
+
 export { EXCHANGES };
 
 // ============================================================
@@ -115,8 +192,10 @@ var fetchGen = 0;
 
 export async function fetchOHLCV(symbol, tfMin, limit) {
     var errors = [];
+    var currentMarket = state.currentMarket || '加密市场';
     for (var i = 0; i < EXCHANGES.length; i++) {
         var ex = EXCHANGES[i];
+        if (ex.market && ex.market !== currentMarket) continue; // skip if not for this market
         var instId = ex.instMap[symbol];
         if (!instId) { errors.push(ex.id + ': no mapping'); continue; }
         var interval = ex.tfMap[tfMin];
@@ -298,7 +377,11 @@ export function startRealtime() {
     if (state.realtime) return;
     state.realtime = true;
     realtimeSource = null;
-    connectOKXWS();
+    // Only connect WebSocket for crypto market
+    var market = state.currentMarket || '加密市场';
+    if (market === '加密市场') {
+        connectOKXWS();
+    }
     restPollUpdate();
     pollTimer = setInterval(restPollUpdate, 500);
 }
@@ -318,6 +401,8 @@ export function restartRealtime() {
 // ============================================================
 
 export async function fetchOrderBook(symbol) {
+    var market = state.currentMarket || '加密市场';
+    if (market !== '加密市场') throw new Error('深度图仅支持加密市场');
     var spotId = symbol.replace('-PERP', '-USDT');
     try {
         var r = await fetch('https://www.okx.com/api/v5/market/books?instId=' + encodeURIComponent(spotId) + '&sz=200');

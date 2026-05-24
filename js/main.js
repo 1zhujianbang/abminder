@@ -3,7 +3,8 @@
 // ============================================================
 import { state, signalFilter, setSignalFilter, pinnedTime, setPinnedTime, drawMode, toggleDrawMode, showStructures, toggleStructures, fullscreenMode, toggleFullscreen, symbolChangeLock, setSymbolChangeLock, setCandleLimit, loadSignals, loadBookmarks, loadDrawings, pushHist, resetHistory, undoHist, redoHist, getSignal, removeSignal, noteTab, addDrawLine } from './state.js';
 import { chart, candleSeries, setChartData, updateCandleOnChart, updateMarkers, updateOHLCBar, renderDrawings, updateDataSource, setOnCandleClick, setOnCrosshairMove, initChart, releaseKLine, movePin, initDepthChart } from './chart.js';
-import { showToast, renderToolbar, renderSignalButtons, renderSignalLog, updateNoteArea, focusNoteForTime, bindNoteInput, bindSignalLogClick, bindNoteListClick, bindNewsflashClick, bindToolActions, renderExtraTools, initSignalControls, initPickerButtons, addFullscreenButton, renderAll, handleSignalClick, dom, updateLiveIndicator } from './ui.js';
+import { showToast, renderToolbar, renderSignalButtons, renderSignalLog, updateNoteArea, focusNoteForTime, bindNoteInput, bindSignalLogClick, bindNoteListClick, bindNewsflashClick, bindToolActions, renderExtraTools, initSignalControls, initPickerButtons, addFullscreenButton, renderAll, handleSignalClick, dom, updateLiveIndicator, rebuildSymbolSelector } from './ui.js';
+import { MARKET_CONFIG, SYMBOLS, A_SYMBOLS } from './config.js';
 import { fetchOHLCV, setOnRealtimeUpdate, setOnTitleUpdate, startRealtime, restartRealtime } from './api-market.js';
 import { fetchNewsflash, fetchArticles, setOnNewsflashLoaded, setOnArticlesLoaded, setOnSearchDone } from './api-odaily.js';
 import { startRemotePoll } from './remote-control.js';
@@ -108,6 +109,7 @@ async function changeSymbol(sym) {
     try {
         state.symbol = sym;
         document.title = 'Reminder | ' + sym;
+        releaseKLine();
         setSignalFilter('all');
         loadSignals();
         resetHistory();
@@ -334,6 +336,25 @@ function wireCustomEvents() {
 
     document.addEventListener('refresh', function () {
         loadChartData();
+    });
+
+    document.addEventListener('marketchange', function (e) {
+        var market = e.detail.market;
+        if (market === state.currentMarket) return;
+        state.currentMarket = market;
+
+        // Rebuild symbol selector for the new market
+        rebuildSymbolSelector();
+
+        // Get first symbol from the new market's list
+        var cfg = MARKET_CONFIG[market];
+        var list = market === 'A股市场' ? A_SYMBOLS : SYMBOLS;
+        var first = list.find(function (s) { return cfg.catFilter.indexOf(s.cat) !== -1; });
+        if (first && first.name !== state.symbol) {
+            // Will trigger changeSymbol, which handles the rest
+            var evt = new CustomEvent('symbolchange', { detail: { symbol: first.name } });
+            document.dispatchEvent(evt);
+        }
     });
 }
 

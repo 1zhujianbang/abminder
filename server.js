@@ -4,12 +4,14 @@
  * Then open http://localhost:3456 in your browser.
  */
 var http = require('http');
+var https = require('https');
 var fs = require('fs');
 var path = require('path');
 
 var PORT = 3456;
 var pendingActions = [];
 var appStatus = {};  // latest snapshot from browser
+var FINNHUB_KEY = 'd898p41r01qla01mj11gd898p41r01qla01mj120';
 var MIME = {
     '.html': 'text/html; charset=utf-8',
     '.js': 'application/javascript; charset=utf-8',
@@ -79,11 +81,11 @@ var server = http.createServer(function (req, res) {
         return;
     }
 
-    // GET /api/data/:name — read a local json file
+    // GET /api/data/:name — read a local json file from data/
     var dataMatch = pathname.match(/^\/api\/data\/(\w+)$/);
     if (req.method === 'GET' && dataMatch) {
         var fileName = dataMatch[1] + '.local.json';
-        var filePath2 = path.join(__dirname, fileName);
+        var filePath2 = path.join(__dirname, 'data', fileName);
         fs.readFile(filePath2, 'utf8', function (err, data) {
             if (err) {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -96,10 +98,10 @@ var server = http.createServer(function (req, res) {
         return;
     }
 
-    // POST /api/data/:name — write a local json file
+    // POST /api/data/:name — write a local json file to data/
     if (req.method === 'POST' && dataMatch) {
         var fileName = dataMatch[1] + '.local.json';
-        var filePath2 = path.join(__dirname, fileName);
+        var filePath2 = path.join(__dirname, 'data', fileName);
         var body = '';
         req.on('data', function (chunk) { body += chunk; });
         req.on('end', function () {
@@ -118,6 +120,117 @@ var server = http.createServer(function (req, res) {
         return;
     }
 
+    // GET /api/finnhub — Finnhub proxy (appends API key server-side)
+    if (req.method === 'GET' && pathname === '/api/finnhub') {
+        var apiPath = url.searchParams.get('path');
+        if (!apiPath) {
+            res.writeHead(400);
+            res.end('Missing path param');
+            return;
+        }
+        var fhUrl = 'https://finnhub.io/api/v1/' + apiPath + '&token=' + FINNHUB_KEY;
+        var fhParsed = new URL(fhUrl);
+        var fhMod = fhParsed.protocol === 'https:' ? https : http;
+        var fhOpts = {
+            hostname: fhParsed.hostname, path: fhParsed.pathname + fhParsed.search,
+            method: 'GET',
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+        };
+        var fhReq = fhMod.request(fhOpts, function (fhRes) {
+            var body = '';
+            fhRes.on('data', function (chunk) { body += chunk; });
+            fhRes.on('end', function () {
+                res.writeHead(fhRes.statusCode, { 'Content-Type': 'application/json' });
+                res.end(body);
+            });
+        });
+        fhReq.on('error', function (e) {
+            res.writeHead(502);
+            res.end(JSON.stringify({ error: e.message }));
+        });
+        fhReq.end();
+        return;
+    }
+
+    // GET /api/nasdaq — NASDAQ historical data proxy (CORS workaround)
+    if (req.method === 'GET' && pathname === '/api/nasdaq') {
+        var symbol = url.searchParams.get('symbol');
+        var fromDate = url.searchParams.get('from') || '2026-01-01';
+        var limit = url.searchParams.get('limit') || '100';
+        if (!symbol) { res.writeHead(400); res.end('Missing symbol'); return; }
+        var ndUrl = 'https://api.nasdaq.com/api/quote/' + encodeURIComponent(symbol) + '/historical?assetclass=stocks&fromdate=' + fromDate + '&limit=' + limit;
+        var ndParsed = new URL(ndUrl);
+        var ndReq = https.request({
+            hostname: ndParsed.hostname, path: ndParsed.pathname + ndParsed.search,
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json',
+                'Referer': 'https://www.nasdaq.com/',
+            },
+        }, function (ndRes) {
+            var body = '';
+            ndRes.on('data', function (chunk) { body += chunk; });
+            ndRes.on('end', function () {
+                res.writeHead(ndRes.statusCode, { 'Content-Type': 'application/json' });
+                res.end(body);
+            });
+        });
+        ndReq.setTimeout(20000, function () { ndReq.destroy(); });
+        ndReq.on('error', function (e) { res.writeHead(502); res.end(JSON.stringify({ error: e.message })); });
+        ndReq.end();
+        return;
+    }
+
+    // GET /api/proxy — CORS proxy for external APIs (yahoo, eastmoney, etc.)
+    if (req.method === 'GET' && pathname === '/api/proxy') {
+        var targetUrl = url.searchParams.get('url');
+        if (!targetUrl) {
+            res.writeHead(400);
+            res.end('Missing url param');
+            return;
+        }
+        // Only allow specific hosts for security
+        var allowedHosts = ['query1.finance.yahoo.com', 'push2his.eastmoney.com', 'push2.eastmoney.com', 'stooq.com', 'api.nasdaq.com'];
+        try {
+            var parsed = new URL(targetUrl);
+            if (allowedHosts.indexOf(parsed.host) === -1) {
+                res.writeHead(403);
+                res.end('Host not allowed');
+                return;
+            }
+        } catch (_) {
+            res.writeHead(400);
+            res.end('Invalid url');
+            return;
+        }
+        var proxiedUrl = new URL(targetUrl);
+        var proxyMod = proxiedUrl.protocol === 'https:' ? https : http;
+        var proxyOpts = {
+            hostname: proxiedUrl.hostname, path: proxiedUrl.pathname + proxiedUrl.search,
+            method: 'GET',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                'Referer': 'https://www.nasdaq.com/',
+            },
+        };
+        var proxyReq = proxyMod.request(proxyOpts, function (proxyRes) {
+            var body = '';
+            proxyRes.on('data', function (chunk) { body += chunk; });
+            proxyRes.on('end', function () {
+                res.writeHead(proxyRes.statusCode, { 'Content-Type': proxyRes.headers['content-type'] || 'application/json' });
+                res.end(body);
+            });
+        });
+        proxyReq.on('error', function (e) {
+            res.writeHead(502);
+            res.end(e.message);
+        });
+        return;
+    }
+
     // Serve static files
     var filePath = path.join(__dirname, pathname === '/' ? 'index.html' : pathname);
     var ext = path.extname(filePath);
@@ -127,10 +240,13 @@ var server = http.createServer(function (req, res) {
             res.end('Not Found');
             return;
         }
-        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+        res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': ext === '.js' || ext === '.css' || ext === '.html' ? 'no-cache' : 'public, max-age=3600' });
         res.end(data);
     });
 });
+
+// Ensure data directory exists
+fs.mkdirSync(path.join(__dirname, 'data'), { recursive: true });
 
 server.listen(PORT, function () {
     console.log('┌─────────────────────────────────────────┐');

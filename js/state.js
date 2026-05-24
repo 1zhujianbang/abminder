@@ -19,6 +19,7 @@ export const state = {
     activeExchange: '',
     realtime: false,
     noteFilter: 'all',
+    currentMarket: '加密市场',
 };
 
 // Additional state vars
