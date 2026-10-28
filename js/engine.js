@@ -559,12 +559,13 @@
         }
       }
 
-      // ② 自己抽牌区的牌（含固定牌，主人主动使用） → 任意玩家的空身份区
+      // ② 自己抽牌区的牌（含固定牌，主人主动使用） → 自己的空身份区
+      //    别人的身份区只能用“自己的身份牌”操作，不能用自己的颜色牌。
       for (i = 0; i < me.draw.length; i++) {
         card = me.draw[i];
-        for (pi = 0; pi < this.players.length; pi++) {
-          p = this.players[pi];
-          if (p.identity !== null) continue;
+        pi = actor;
+        p = this.players[pi];
+        if (p.identity === null) {
           out.push({
             action: MOVE,
             target: { zone: Z_DRAW, seat: actor, card_uid: card.uid, to_zone: Z_IDENTITY, to_seat: pi, slot: -1 },
@@ -574,12 +575,12 @@
         }
       }
 
-      // ③ 身份牌 → 配牌区空槽（非固定身份牌任何玩家可移；固定身份牌只能由主人作为主动方移）
+      // ③ 自己的身份牌 → 配牌区空槽 / 其他玩家的空身份区（只有主人能移动自己的身份牌）
       for (pi = 0; pi < this.players.length; pi++) {
+        if (pi !== actor) continue;
         p = this.players[pi];
         var idc = p.identity;
         if (idc === null) continue;
-        if (idc.fixed && pi !== actor) continue;
         for (slot = 0; slot < D.MATCH_SLOTS; slot++) {
           if (this.match_slots[slot] !== null) continue;
           out.push({
@@ -596,21 +597,18 @@
             free: true,
           });
         }
-        // 固定身份牌的主人可以把它主动移进其他玩家的空身份区
-        if (idc.fixed && pi === actor) {
-          for (var qi = 0; qi < this.players.length; qi++) {
-            if (qi === actor) continue;
-            if (this.players[qi].identity !== null) continue;
-            out.push({
-              action: MOVE,
-              target: { zone: Z_IDENTITY, seat: actor, card_uid: idc.uid, to_zone: Z_IDENTITY, to_seat: qi, slot: -1 },
-              text:
-                "把自己的固定身份牌" + this._card_label(idc) + "移进" +
-                this._identity_zone_ref(qi, actor) +
-                "（自己的身份区变空，牌归" + this.players[qi].name + "）",
-              free: true,
-            });
-          }
+        for (var qi = 0; qi < this.players.length; qi++) {
+          if (qi === actor) continue;
+          if (this.players[qi].identity !== null) continue;
+          out.push({
+            action: MOVE,
+            target: { zone: Z_IDENTITY, seat: actor, card_uid: idc.uid, to_zone: Z_IDENTITY, to_seat: qi, slot: -1 },
+            text:
+              "把自己的身份牌" + this._card_label(idc) + "移进" +
+              this._identity_zone_ref(qi, actor) +
+              "（自己的身份区变空，牌归" + this.players[qi].name + "）",
+            free: true,
+          });
         }
       }
     }
@@ -642,8 +640,9 @@
           });
         }
 
-        // ② 自己抽牌区牌 → 任意玩家有牌的身份区（旧身份牌不能是固定牌）
+        // ② 自己抽牌区牌 → 自己的有牌身份区（别人的身份区只能用自己的身份牌操作）
         for (pi = 0; pi < this.players.length; pi++) {
+          if (pi !== actor) continue;
           p = this.players[pi];
           old = p.identity;
           if (old === null || old.fixed) continue;
@@ -1066,11 +1065,11 @@
         card = this._find_draw_card(src_seat, uid);
         if (card === null) return false;
       } else if (zone === Z_IDENTITY) {
-        // 来源可以是身份牌；固定身份牌只有主人作主动方时可用
+        // 只有主人能移动自己的身份牌；别人的身份牌不能用其自身来移动
+        if (src_seat !== actor) return false;
         if (src_seat < 0 || src_seat >= this.players.length) return false;
         var idc = this.players[src_seat].identity;
         if (idc === null || idc.uid !== uid) return false;
-        if (idc.fixed && src_seat !== actor) return false;
         card = idc;
       } else {
         return false;
@@ -1094,10 +1093,12 @@
         if (to_seat < 0 || to_seat >= this.players.length) return false;
         if (this.players[to_seat].identity !== null) return false;
         if (zone === Z_DRAW) {
+          // 自己抽牌区的颜色牌只能填补自己的空身份区；别人的身份区不能用自己的颜色牌。
+          if (to_seat !== actor) return false;
           eraseRef(this.players[src_seat].draw, card);
         } else {
-          // 身份牌来源进空身份区：只允许固定身份牌的主人作主动方
-          if (!card.fixed || src_seat !== actor || to_seat === actor) return false;
+          // 自己的身份牌可以移进其他玩家的空身份区（主动给予身份）
+          if (src_seat !== actor || to_seat === actor) return false;
           this.players[actor].identity = null;
         }
         card.fixed = false; // 固定牌被主动使用后失去固定
@@ -1156,6 +1157,7 @@
       if (to_zone === Z_IDENTITY) {
         if (to_seat < 0 || to_seat >= this.players.length) return false;
         if (from_identity && to_seat === actor) return false; // 不能用自己的身份牌替换自己的身份牌
+        if (!from_identity && to_seat !== actor) return false; // 别人的身份区只能用自己的身份牌替换，不能用自己的颜色牌
         var old_idc = this.players[to_seat].identity;
         if (old_idc === null || old_idc.fixed) return false;
         this._to_color_discard(old_idc);
