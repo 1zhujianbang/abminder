@@ -700,6 +700,7 @@
         if (card.owner === actor) {
           text += "→" + self._card_label_color(card.color_down());
         }
+        text += card.fixed ? "（取消固定）" : "（翻面后固定）";
         out.push({
           action: FLIP,
           target: { zone: zone, seat: card_seat, slot: slot, card_uid: card.uid },
@@ -832,6 +833,21 @@
         if (action === FLIP && isPlainDict(target) && toInt(dget(target, "zone", -1)) === Z_DRAW) continue;
         out.push(opt);
       }
+      // 响应中可以使用手牌【固定】【移除】，目标限配牌区/身份牌。
+      var p = this.players[r];
+      for (var hi = 0; hi < p.hand.length; hi++) {
+        var hand_action = p.hand[hi];
+        if (hand_action !== FIX && hand_action !== REMOVE) continue;
+        var hand_opts = [];
+        if (hand_action === FIX) this._legal_fix(r, hi, hand_opts);
+        else this._legal_remove(r, hi, hand_opts);
+        for (var k = 0; k < hand_opts.length; k++) {
+          var ht = dget(hand_opts[k], "target", {});
+          var hz = isPlainDict(ht) ? toInt(dget(ht, "zone", -1)) : -1;
+          if (hz !== Z_MATCH && hz !== Z_IDENTITY) continue;
+          out.push(hand_opts[k]);
+        }
+      }
       return out;
     }
 
@@ -845,16 +861,31 @@
       if (r < 0) return fail("没有待响应的玩家");
       if (!isPlainDict(option)) return fail("响应选项格式错误");
       var action = toInt(dget(option, "action", -1));
-      if (!isFreeAction(action)) return fail("响应只能执行移动/替换/翻转");
+      var free_action = isFreeAction(action);
+      var hand_action = action === FIX || action === REMOVE;
+      if (!free_action && !hand_action) return fail("响应只能执行移动/替换/翻转，或打出固定/移除");
       var target_raw = dget(option, "target", {});
       if (!isPlainDict(target_raw)) return fail("响应选项 target 格式错误");
       var target = target_raw;
-      var chosen = this._match_free_option(this.get_response_options(), action, target);
-      if (!chosen) return fail("非法响应选项（目标不合法）");
-      if (!this._apply_free_effect(r, action, target)) return fail("响应执行失败");
+      var chosen = null;
+      var p = this.players[r];
+      if (hand_action) {
+        var hi = toInt(dget(option, "hand_index", -1));
+        if (hi < 0 || hi >= p.hand.length) return fail("hand_index 非法");
+        if (p.hand[hi] !== action) return fail("手牌与响应行动类型不匹配");
+        chosen = this._match_hand_option(this.get_response_options(), action, hi, target);
+        if (!chosen) return fail("非法响应手牌选项（目标不合法）");
+        if (!this._apply_play_effect(r, action, target)) return fail("响应手牌执行失败");
+        p.hand.splice(hi, 1);
+        this._to_action_discard(action);
+      } else {
+        chosen = this._match_free_option(this.get_response_options(), action, target);
+        if (!chosen) return fail("非法响应选项（目标不合法）");
+        if (!this._apply_free_effect(r, action, target)) return fail("响应执行失败");
+      }
       this._response_idx += 1;
       var done = this.get_current_responder() < 0;
-      var log_msg = this.players[r].name + " 响应【" + D.action_name(action) + "】：" + String(dget(chosen, "text", ""));
+      var log_msg = p.name + " 响应【" + D.action_name(action) + "】：" + String(dget(chosen, "text", ""));
       this._log(log_msg);
       if (done) this._log("响应窗口结束，等待配对结算");
       return { ok: true, error: "", action: action, done: done, log: log_msg };
@@ -1143,8 +1174,10 @@
       var card = this._target_card(target);
       if (card === null) return false;
       if (card.fixed && card.owner !== toInt(actor)) return false;
+      var was_fixed = card.fixed;
       card.flip();
-      if (card.fixed) card.fixed = false; // 固定牌被主人主动翻转后失去固定
+      // 翻转未固定牌 → 翻面后固定；翻转自己的固定牌 → 翻面并取消固定。
+      card.fixed = !was_fixed;
       return true;
     }
 

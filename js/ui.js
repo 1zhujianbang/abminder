@@ -1577,6 +1577,18 @@
     return null;
   }
 
+  /** 响应选项中的手牌【固定】/【移除】，entry 命中可直接执行。 */
+  function findResponseHandOption(entry) {
+    if (!entry) return null;
+    for (var i = 0; i < S.responseOptions.length; i++) {
+      var opt = S.responseOptions[i];
+      if (!opt || typeof opt.hand_index !== "number") continue;
+      if (opt.action !== 4 && opt.action !== 5) continue;
+      if (entryMatchesSingle(entry, opt.target)) return opt;
+    }
+    return null;
+  }
+
   /** 响应拖拽中的来源放到 entry 上能匹配到的响应选项。 */
   function findResponseDropOption(entry) {
     if (!S.dragSource || !entry) return null;
@@ -1840,9 +1852,11 @@
         }
       }
     }
-    /* 2) 翻转：直接点场上非固定身份/配牌牌 */
+    /* 2) 翻转：直接点场上可翻的牌；手牌固定/移除：直接点其目标 */
     var flipOpt = findResponseSingleOption(entry, A.FLIP);
     if (flipOpt) { onResponseOptionClick(flipOpt); return; }
+    var handOpt = findResponseHandOption(entry);
+    if (handOpt) { onResponseOptionClick(handOpt); return; }
     /* 3) 点来源 → 选中/更换来源 */
     var srcInfo = findResponseSourceInfo(entry);
     if (srcInfo) {
@@ -2227,9 +2241,9 @@
 
     modal.appendChild(h("div", { class: "response-info" }, [
       h("span", { class: "ri-label" }, "响应方式"),
-      h("span", { class: "ri-text" }, "点击场上高亮目标 / 拖拽自己的抽牌区牌或身份牌，执行一次免费动作；也可用下方按钮"),
+      h("span", { class: "ri-text" }, "点击场上高亮目标 / 拖拽自己的抽牌区牌或身份牌，执行一次免费动作；也可打出下方手牌【固定】/【移除】；或点「不响应」"),
       h("span", { class: "ri-label" }, "目标"),
-      h("span", { class: "ri-text" }, "只能是配牌区或任意身份牌；其他玩家的固定牌不可作为响应目标，自己的固定牌可主动移动/替换/翻转；不消耗手牌")
+      h("span", { class: "ri-text" }, "限配牌区或身份牌；其他玩家的固定牌不可作为响应目标，自己的固定牌可主动操作；响应手牌会被消耗")
     ]));
 
     modal.appendChild(h("div", { class: "match-preview" }, [

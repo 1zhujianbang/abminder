@@ -480,7 +480,9 @@
     switch (meta.action) {
       case ACT.FLIP: {
         const loc = _locateCard(st, meta.loc);
-        if (!loc || !loc.card || loc.card.fixed) return { scenarios: [factory()], meta: meta };
+        if (!loc || !loc.card) return { scenarios: [factory()], meta: meta };
+        // 固定牌只有主人可以翻（翻转会取消固定）；其他玩家不能翻。
+        if (loc.card.fixed && loc.card.owner !== st.seat) return { scenarios: [factory()], meta: meta };
         if (loc.zone === ZONE.MATCH) {
           if (loc.slot < 0 || loc.slot > 1) return { scenarios: [factory()], meta: meta };
           if (loc.card.other >= 0) {
