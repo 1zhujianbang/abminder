@@ -1,13 +1,10 @@
 {
-  "name": "abminder",
+  "name": "kakapai-web",
   "version": "1.0.0",
   "private": true,
-  "description": "abminder — 交易信号标注工具",
+  "description": "《卡卡牌》web demo（纯静态，Cloudflare Pages 可直接部署）",
   "scripts": {
-    "dev": "node server.js",
+    "build": "node -e \"process.exit(0)\"",
     "deploy": "npx wrangler pages deploy . --project-name=abminder"
-  },
-  "dependencies": {
-    "nodemailer": "^8.0.8"
   }
 }

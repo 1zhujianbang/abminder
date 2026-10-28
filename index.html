@@ -1,131 +1,195 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>交易信号标注工具</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>卡卡牌 · 核心玩法 Demo</title>
+  <!-- 内联空图标，避免 file:// 下请求 favicon（不引任何外部资源） -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
-    <div id="app">
-        <!-- ===== Top Toolbar (15%) ===== -->
-        <header id="toolbar">
-            <div class="toolbar-left">
-                <div id="timeframe-group"></div>
-            </div>
-            <div class="toolbar-center">
-                <div class="toolbar-row">
-                    <span id="ohlc-bar"></span>
-                    <span id="data-source"></span>
-                </div>
-            </div>
-            <div class="toolbar-right">
-                <button class="tool-btn" id="btn-refresh" title="刷新图表数据">↻</button>
-                <button class="tool-btn" id="btn-clear-all" title="清除当前交易对所有信号">清除</button>
-                <button class="tool-btn" id="btn-export" title="导出信号数据">导出</button>
-                <button class="tool-btn" id="btn-import" title="导入信号数据">导入</button>
-                <button class="tool-btn live-btn" id="btn-live" title="实时数据">LIVE</button>
-            </div>
-        </header>
+<body data-screen="menu" data-turn-state="menu">
 
-        <!-- ===== Chart Area (55%) ===== -->
-        <main id="chart-container">
-            <div id="chart"></div>
-        </main>
+  <!-- 可见错误条：任何脚本异常 / 致命流程错误都会显示在这里 -->
+  <div id="error-bar" class="error-bar" data-testid="error-bar" role="alert" hidden>
+    <span class="error-icon" aria-hidden="true">!</span>
+    <span class="error-text" id="error-text"></span>
+    <button type="button" class="error-dismiss" id="error-dismiss" aria-label="关闭错误提示">×</button>
+  </div>
 
-        <!-- ===== Signal Area (30%) ===== -->
-        <footer id="signal-area">
-            <!-- Note input -->
-            <div id="note-area" class="hidden">
-                <div class="note-top">
-                    <span id="note-signal-info"></span>
-                    <span class="note-ref-btns">
-                        <button class="note-ref-btn" id="btn-ins-flash" title="插入快讯引用">+快讯</button>
-                        <button class="note-ref-btn" id="btn-ins-article" title="插入文章引用">+文章</button>
-                        <button class="note-ref-btn" id="btn-ins-note" title="插入其他笔记引用">+笔记</button>
-                    </span>
-                    <button id="btn-release" class="note-ref-btn" title="释放K线 (取消固定)" style="font-size:12px;line-height:1;padding:2px 5px;">✕</button>
-                    <select id="note-category" disabled>
-                        <option value="technical">技术分析</option>
-                        <option value="news">消息面</option>
-                        <option value="capital">资金流向</option>
-                        <option value="key_level">关键位置</option>
-                        <option value="other">其他</option>
-                    </select>
-                </div>
-                <textarea id="note-input" placeholder="选择K线以查看或添加笔记" rows="2" disabled></textarea>
-            </div>
-
-            <!-- Signal history -->
-            <div id="signal-history">
-                <div class="signal-history-header">
-                    <span>信号记录</span>
-                    <span id="signal-count">0</span>
-                </div>
-                <div id="signal-list"></div>
-            </div>
-
-            <!-- Signal buttons -->
-            <div id="signal-buttons"></div>
-        </footer>
+  <!-- ======================= 菜单屏 ======================= -->
+  <main id="screen-menu" class="screen screen-menu" aria-label="主菜单">
+    <div class="menu-bg" aria-hidden="true">
+      <span class="menu-bg-card menu-bg-card-a"></span>
+      <span class="menu-bg-card menu-bg-card-b"></span>
+      <span class="menu-bg-card menu-bg-card-c"></span>
     </div>
+    <div class="menu-inner">
+      <header class="menu-head">
+        <p class="menu-kicker">CARD · MATCH · RESPOND</p>
+        <h1 class="menu-title">卡卡牌</h1>
+        <p class="menu-subtitle">核心玩法 Demo</p>
+      </header>
 
-    <!-- Flash news picker -->
-    <div id="flash-picker" class="picker-overlay hidden">
-        <div class="flash-picker-header">
-            <span>选择快讯</span>
-            <button class="picker-close">✕</button>
+      <section class="menu-panel" aria-label="对局设置">
+        <div class="setting-row">
+          <span class="setting-label">玩家人数</span>
+          <div class="seg-group" id="seg-players" role="group" aria-label="玩家人数">
+            <button type="button" class="seg-btn" id="players-2" data-testid="players-2" data-value="2">2 人</button>
+            <button type="button" class="seg-btn" id="players-3" data-testid="players-3" data-value="3">3 人</button>
+            <button type="button" class="seg-btn" id="players-4" data-testid="players-4" data-value="4">4 人</button>
+          </div>
         </div>
-        <div id="flash-picker-list" class="picker-list"></div>
-    </div>
-
-    <!-- Article picker -->
-    <div id="article-picker" class="picker-overlay hidden">
-        <div class="flash-picker-header">
-            <span>选择文章</span>
-            <button class="picker-close">✕</button>
+        <div class="setting-row">
+          <span class="setting-label">活跃颜色</span>
+          <div class="seg-group" id="seg-colors" role="group" aria-label="活跃颜色数量">
+            <button type="button" class="seg-btn" id="colors-2" data-testid="colors-2" data-value="2">2 色</button>
+            <button type="button" class="seg-btn" id="colors-3" data-testid="colors-3" data-value="3">3 色</button>
+            <button type="button" class="seg-btn" id="colors-4" data-testid="colors-4" data-value="4">4 色</button>
+          </div>
         </div>
-        <div id="article-picker-list" class="picker-list"></div>
-    </div>
-
-    <!-- Note picker (notes from all symbols) -->
-    <div id="note-picker" class="picker-overlay hidden">
-        <div class="flash-picker-header">
-            <span>选择笔记</span>
-            <button class="picker-close">✕</button>
+        <div class="setting-row">
+          <span class="setting-label">AI 难度</span>
+          <div class="seg-group" id="seg-difficulty" role="group" aria-label="AI 难度">
+            <button type="button" class="seg-btn" id="difficulty-0" data-testid="difficulty-0" data-value="0">简单</button>
+            <button type="button" class="seg-btn" id="difficulty-1" data-testid="difficulty-1" data-value="1">普通</button>
+            <button type="button" class="seg-btn" id="difficulty-2" data-testid="difficulty-2" data-value="2">困难</button>
+          </div>
         </div>
-        <div id="note-picker-list" class="picker-list"></div>
-    </div>
+        <div class="setting-row">
+          <label class="setting-label" for="seed-input">对局种子</label>
+          <div class="seed-box">
+            <input class="seed-input" id="seed-input" data-testid="seed-input" type="text" inputmode="numeric"
+                   autocomplete="off" spellcheck="false" maxlength="9" placeholder="随机" aria-label="对局种子">
+            <button type="button" class="seed-dice" id="seed-random" title="换一个随机种子" aria-label="换一个随机种子">⟳</button>
+          </div>
+        </div>
 
-    <!-- Settings modal -->
-    <div id="settings-overlay" class="picker-overlay hidden">
-        <div class="settings-panel">
-            <div class="settings-header">
-                <span>⚙ 设置</span>
-                <button class="picker-close">✕</button>
+        <button type="button" class="btn-start" id="start-game" data-testid="start-game">开始对局</button>
+        <p class="menu-note">单人 vs AI · 核心玩法（无 3D/音频/联机）</p>
+      </section>
+
+      <details class="rules-quick">
+        <summary>规则速查</summary>
+        <div class="rules-body">
+          <p><b>目标</b>：配牌区凑出两张同色牌并结算，<b>个人分</b>先到 5 分即获胜（多人同时到 5 则共同获胜）。</p>
+          <p><b>回合</b>：每回合必须且只能行动一次：执行一次<b>免费动作</b>（移动 / 替换 / 翻转，不消耗手牌），或打出一张手牌（配对 / 固定 / 移除）。第 2 轮起回合开始抽 1 张手牌并刷新抽牌区。</p>
+          <p><b>六种行动</b>：移动（把牌放进空槽）、替换（顶掉有牌槽的牌）、翻转（翻任意非固定颜色牌；固定牌只有主人能主动翻自己的）、配对（两槽有牌时结算）、固定（保护一张非固定牌；固定牌不能被别人选为目标，但主人可以主动用它移动/替换/翻转，还能移进别人的空身份区）、移除（弃掉任意颜色牌）。</p>
+          <p><b>身份牌</b>：每人一张，当前朝上颜色 = 得分颜色；身份区可为空（无颜色、不能得分）；任意玩家都能移动 / 替换 / 翻转 / 固定 / 移除身份牌。</p>
+          <p><b>响应</b>：打出配对后立即进入响应窗口，所有玩家按座位顺序直接参与（不暗置）：每人可执行一次免费动作（目标限配牌区或身份牌；固定牌不可作为响应目标）或跳过；响应结束后再比较颜色。轮到你响应时，同样可点击 / 拖拽场上高亮目标，或点「不响应」。</p>
+          <p><b>计分</b>：配对成功后，身份区不为空且当前颜色与配对颜色相同的所有玩家个人分 +1。</p>
+          <p><b>操作</b>：先点手牌或免费动作，再直接点场上的高亮目标；也可以把自己的抽牌区 / 任意身份牌拖到配牌槽或身份区（执行免费动作），或把手牌（配对 / 固定 / 移除）直接拖到场上高亮目标执行。下方按钮列表始终可用（键盘操作兜底）。</p>
+        </div>
+      </details>
+    </div>
+  </main>
+
+  <!-- ======================= 对局屏 ======================= -->
+  <main id="screen-game" class="screen screen-game" aria-label="对局">
+    <header class="game-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">♠</span>
+        <span class="brand-text">卡卡牌 · 核心玩法 Demo</span>
+      </div>
+      <div class="header-status">
+        <span class="hdr-round" id="hdr-round">第 1 轮</span>
+        <span class="hdr-dot" aria-hidden="true">·</span>
+        <span class="hdr-turn" id="hdr-turn">轮到 你</span>
+        <span class="hdr-dot" aria-hidden="true">·</span>
+        <span class="hdr-phase" id="hdr-phase">行动阶段</span>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="hdr-btn" id="btn-rules">规则</button>
+        <button type="button" class="hdr-btn" id="btn-new-game">新对局</button>
+      </div>
+    </header>
+
+    <div class="game-main">
+      <!-- 左栏：对手面板 -->
+      <aside class="col-opponents" id="opponents" aria-label="对手面板"></aside>
+
+      <!-- 中栏：牌桌 + 你的区域 -->
+      <section class="col-center" aria-label="牌桌">
+        <div class="table-surface">
+          <div class="table-head">
+            <div class="round-badge" id="round-badge">第 1 轮</div>
+            <div class="turn-banner" id="turn-banner">
+              <div class="banner-title">准备中…</div>
+              <div class="banner-sub"></div>
             </div>
-            <div id="settings-body" class="settings-body"></div>
-            <div class="settings-footer">
-                <button id="btn-settings-reset" class="tool-btn" style="color:var(--down);">恢复默认</button>
-                <span id="settings-status" style="font-size:11px;color:var(--text);opacity:0.5;"></span>
-            </div>
+            <div class="phase-badge" id="phase-badge">行动阶段</div>
+          </div>
+
+          <div class="match-zone">
+            <div class="zone-title">配牌区</div>
+            <div class="match-slots" id="match-slots"></div>
+            <div class="match-status" id="match-status"></div>
+          </div>
+
+          <div class="table-foot">
+            <div class="piles" id="piles"></div>
+          </div>
         </div>
+
+        <!-- 你的区域（同时是 data-testid=player-panel） -->
+        <div class="human-area" id="human-area" data-testid="player-panel" data-seat="0"></div>
+      </section>
+
+      <!-- 右栏：对局记录 -->
+      <aside class="col-log" aria-label="对局记录">
+        <div class="log-head">
+          <span class="log-title">对局记录</span>
+          <span class="log-count" id="log-count">0</span>
+        </div>
+        <div class="log" id="log" data-testid="log" role="log" aria-live="polite"></div>
+      </aside>
     </div>
 
-    <!-- Toast -->
-    <div id="toast" class="toast"></div>
-    <!-- Confirm dialog -->
-    <div id="confirm-backdrop" class="confirm-backdrop"></div>
-    <div id="confirm" class="confirm-overlay">
-        <span class="confirm-msg"></span>
-        <div>
-            <button class="confirm-btn cancel">取消</button>
-            <button class="confirm-btn ok">确定</button>
-        </div>
-    </div>
+    <footer class="hint-bar">
+      <span class="hint-tag">最后一手</span>
+      <span class="hint-event" id="hint-event" data-testid="last-event">对局开始</span>
+      <span class="hint-state" id="hint-state"></span>
+    </footer>
+  </main>
 
-    <!-- Lightweight Charts (global, NOT an ES module) -->
-    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
-    <script type="module" src="js/main.js"></script>
+  <!-- 战斗/响应/结算弹层 -->
+  <div class="modal-root" id="modal-root" hidden></div>
+
+  <!-- 规则弹层 -->
+  <div class="modal-root rules-layer" id="rules-modal" hidden>
+    <div class="modal rules-modal" role="dialog" aria-modal="true" aria-label="规则说明">
+      <div class="modal-head">
+        <h2>规则速查</h2>
+        <button type="button" class="modal-close" id="rules-close" aria-label="关闭规则">×</button>
+      </div>
+      <div class="rules-modal-body">
+        <h3>目标</h3>
+        <p>配牌区两个槽都有牌时可打出「配对」。结算时两张牌当前朝上的颜色相同即配对成功：身份区不为空、且身份牌当前颜色与该颜色相同的所有玩家个人分 +1。任意玩家个人分先到 5 分即结束对局；同一次结算多人同时到 5 则一起获胜。</p>
+        <h3>回合流程</h3>
+        <p>第 2 轮起，回合开始先抽 1 张行动牌（手牌上限 4），再刷新抽牌区（固定牌保留，按固定数量补抽到 3 张）。随后必须且只能执行一次行动：打出一张手牌（配对 / 固定 / 移除），或执行一次免费动作（移动 / 替换 / 翻转）。没有任何合法行动时跳过本回合并弃 1 张手牌。</p>
+        <h3>操作方式</h3>
+        <p>先点击手牌或免费动作，再直接点击场上高亮的合法目标即可执行（移动 / 替换为两步：先点高亮的来源牌，再点落点）。也可以把自己的抽牌区牌、任意玩家的身份牌拖拽到高亮的配牌槽 / 身份区上执行免费动作；手牌（配对 / 固定 / 移除）同样可以直接拖到场上高亮目标执行（配对可拖到任一配牌槽），拖拽执行后手牌照常消耗。所有操作都同时保留下方按钮列表，可用键盘完成；拖拽只是快捷方式，不是唯一操作方式（触屏请使用点击）。</p>
+        <h3>六种行动</h3>
+        <ul>
+          <li><b>移动</b>（免费）：把自己抽牌区的牌或任意玩家的身份牌移进空槽（配牌区空槽，或抽牌区的牌放进任意空身份区）。</li>
+          <li><b>替换</b>（免费）：用自己抽牌区的一张牌替换有牌槽（配牌区或任意身份区），旧牌进颜色弃牌堆。</li>
+          <li><b>翻转</b>（免费）：翻转任意一张非固定颜色牌（身份牌、抽牌区的牌、配牌区的牌）。</li>
+          <li><b>配对</b>（手牌）：配牌区两槽都有牌时打出，先进入响应窗口，结束后再比较颜色。</li>
+          <li><b>固定</b>（手牌）：固定任意一张非固定颜色牌；固定牌不能被别人选为目标，但主人可以主动用它移动 / 替换 / 翻转，主动使用后固定消失；牌仍可被移除。</li>
+          <li><b>移除</b>（手牌）：把任意一张颜色牌（含固定牌、身份牌）放进颜色弃牌堆。</li>
+        </ul>
+        <h3>身份牌与空身份区</h3>
+        <p>每名玩家有一张身份牌，当前朝上的颜色就是得分颜色；身份区可以为空，此时该玩家没有得分颜色、配对成功也不会得分。身份牌可以被任意玩家移动、替换、翻转、固定、移除；身份区为空时可以用「移动」从自己抽牌区放一张牌进去。</p>
+        <h3>响应窗口</h3>
+        <p>打出配对后立即进入响应窗口，配牌区两张牌保持不动。所有玩家都参与、不需要暗置：从打出配对者的上家开始按座位顺序询问，每人一次，可执行一次免费动作（移动 / 替换 / 翻转，目标只能是配牌区或身份牌）或选择不响应。不能使用手牌。人类响应时牌桌进入响应交互模式：可以直接点击 / 拖拽场上高亮目标，也可以用响应条按钮；询问结束后结算配对：同色成功、异色失败、不足两张无效，配牌区清空。</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/defs.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/ui.js"></script>
 </body>
 </html>

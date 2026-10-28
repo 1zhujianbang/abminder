@@ -1,29 +1,14 @@
-# OS
+# OS / IDE
 Thumbs.db
 .DS_Store
-
-# IDE
 .vscode/
 .idea/
 *.swp
-*.swo
 
-# Claude
-.claude/
-.agents/
-skills-lock.json
-
-# Dependencies
+# Dependencies / build
 node_modules/
+.wrangler/
 
-# Logs
-server.log
-
-# Local data
+# Local dev / testing artifacts
+tests/
 *.local.json
-
-# Data files - only track example data
-data/*
-!data/signals.json
-!data/drawings.json
-!data/bookmarks.json
