@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>卡卡牌 · 双牌 v2</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="v2.css">
+</head>
+<body>
+  <main id="screen-menu" class="screen">
+    <div class="menu-card">
+      <div class="logo">卡卡牌 <span>· 双牌 v2</span></div>
+      <p class="menu-sub">无手牌区 · 每人一张公开配牌槽 + 一张暗置备牌位 · 只有交换与翻转</p>
+      <p class="menu-sub"><a href="../index.html">← 返回 v1（旧规则 demo）</a></p>
+      <div class="menu-row">
+        <label>玩家人数</label>
+        <div id="players-opts" class="opts"></div>
+      </div>
+      <div class="menu-row">
+        <label>活跃颜色</label>
+        <div id="colors-opts" class="opts"></div>
+      </div>
+      <div class="menu-row">
+        <label>对局种子</label>
+        <input id="seed-input" class="seed-input" inputmode="numeric">
+      </div>
+      <button id="start-btn" class="act-btn primary wide">开始对局</button>
+      <button id="rules-btn" class="act-btn wide">规则说明</button>
+      <p class="menu-note">目标：每回合把自己配牌槽与备牌位凑成同色，+1 分；个人分先到 10 获胜。<br>响应阶段只能以当前玩家的牌为目标。</p>
+    </div>
+  </main>
+
+  <main id="screen-game" class="screen" hidden>
+    <header class="game-header">
+      <div class="brand">卡卡牌 · 双牌 v2</div>
+      <div class="header-status">
+        <span id="hdr-round">第 1 轮</span>
+        <span>·</span>
+        <span id="hdr-turn">轮到 你</span>
+        <span>·</span>
+        <span id="hdr-phase">配牌阶段</span>
+      </div>
+      <div class="header-actions">
+        <button id="rules-btn2" class="mini-btn" onclick="document.getElementById('rules-modal').hidden=false">规则</button>
+        <button id="new-game-btn" class="mini-btn">新对局</button>
+      </div>
+    </header>
+
+    <div class="game-main">
+      <section class="players-wrap">
+        <h2 class="section-title">牌桌</h2>
+        <div id="players" class="players"></div>
+        <div id="status-text" class="status-text"></div>
+        <div id="actions" class="actions"></div>
+      </section>
+      <aside class="side">
+        <h2 class="section-title">对局记录</h2>
+        <div id="log" class="log"></div>
+      </aside>
+    </div>
+  </main>
+
+  <div id="over-modal" class="modal" hidden>
+    <div class="modal-card" id="over-body"></div>
+  </div>
+
+  <div id="rules-modal" class="modal" hidden>
+    <div class="modal-card rules">
+      <h2>《卡卡牌·双牌 v2》</h2>
+      <p><b>每人：</b>配牌槽（公开，1 张）、备牌位（暗置，1 张）、抽牌位（临时，暗置）。没有手牌区。</p>
+      <p><b>回合：</b>补牌到 2 张 → 抽 1 张放进配牌槽 → 从旧配牌槽/备牌位中选 1 张放备牌位，另一张弃掉 → 下家起所有其他玩家各响应一次（只能以当前玩家的牌为目标）→ 当前玩家最后行动一次 → 结算。</p>
+      <p><b>两个动作：</b>交换（用自己的配牌槽/备牌位一张牌换目标玩家的一张牌）、翻转（翻一张牌到另一面，颜色改变）。</p>
+      <p><b>响应：</b>每名其他玩家一次，可交换/翻转/跳过；交换会同时改变双方牌型。</p>
+      <p><b>最后行动：</b>当前玩家可翻自己一张牌，或与任意玩家交换一张牌，或跳过。</p>
+      <p><b>结算：</b>当前玩家配牌槽与备牌位当前颜色相同 → 个人分 +1；成功两张进弃牌堆，失败保留。先到 10 分获胜，只有当前玩家得分。</p>
+      <p><b>操作：</b>全部点击按钮完成；暗牌只有本人能看，备牌位在结算时公开。</p>
+      <button id="rules-close" class="act-btn">知道了</button>
+    </div>
+  </div>
+
+  <script src="js/v2-engine.js"></script>
+  <script src="js/v2-ai.js"></script>
+  <script src="js/v2-ui.js"></script>
+</body>
+</html>
