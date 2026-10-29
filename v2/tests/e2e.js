@@ -95,35 +95,50 @@ class CDP {
     await cdp.send("Page.navigate", { url });
     await wait("!!window.V2App && V2App.getState().screen === 'game'", 8000, "game screen");
     ok(await ev("document.querySelectorAll('.vplayer').length") === 2, "2 人牌桌渲染");
-    ok(await ev("document.querySelectorAll('.vcard').length >= 4"), "每人配牌槽/备牌位卡牌渲染");
+    ok(await ev("document.querySelectorAll('.vcard').length >= 4"), "每人正向/负向牌区渲染");
+    ok(await ev("document.querySelectorAll('.hand-card').length") === 10, "人类 10 张手牌渲染");
     ok(await ev("!!document.getElementById('actions')"), "操作栏存在");
 
-    // 暗牌可见性：人类自己的备牌位有颜色；电脑的备牌位显示暗牌
+    // 先推进到响应阶段，让双方负向牌区都有牌，再检查暗牌可见性
+    const preDeadline = Date.now() + 12000;
+    while (Date.now() < preDeadline) {
+      const phase = await ev("V2App.getGame() ? V2App.getGame().phase : ''");
+      if (phase === "response") break;
+      await ev(`(function(){
+        var hc=document.querySelector('.hand-card.can-play'); if(hc){hc.click(); return;}
+        var b=document.querySelector('#actions .act-btn:not([disabled])'); if(b) b.click();
+      })()`);
+      await sleep(40);
+    }
+    // 人类自己的负向匹配色可见；电脑的负向匹配色显示“暗”
     const vis = await ev(`(function(){
       var ps=document.querySelectorAll('.vplayer');
-      function backupText(el){var c=el.querySelectorAll('.vcard')[1]; if(!c)return ''; var hidden=c.querySelector('.vcard-pattern'); return hidden? 'hidden': (c.querySelector('.vcard-color')||{}).textContent||'';}
-      return { me: backupText(ps[0]), ai: backupText(ps[1]) };
+      function negText(el){var c=el.querySelectorAll('.vcard')[1]; return c? c.textContent : '';}
+      return { me: negText(ps[0]), ai: negText(ps[1]), phase: V2App.getGame().phase };
     })()`);
-    ok(vis && vis.me !== "hidden", "自己的备牌位颜色可见（" + (vis && vis.me) + "）");
-    ok(vis && vis.ai === "hidden", "对手备牌位暗置");
+    ok(vis && vis.me.indexOf("匹配色") >= 0 && vis.me.indexOf("暗") < 0, "自己的负向匹配色可见（" + (vis && vis.me) + "）");
+    ok(vis && vis.ai.indexOf("暗") >= 0, "对手负向匹配色暗置");
 
     let clicks = 0;
-    const deadline = Date.now() + 60000;
+    const deadline = Date.now() + 90000;
     while (Date.now() < deadline) {
       const st = await ev(`(function(){
         var over=document.getElementById('over-modal');
         if(over && !over.hidden) return 'over';
+        var hc=document.querySelector('.hand-card.can-play');
+        if(hc){ hc.click(); return 'click'; }
         var b=document.querySelector('#actions .act-btn:not([disabled])');
         if(b){ b.click(); return 'click'; }
         return 'wait';
       })()`);
       if (st === "over") break;
       if (st === "click") clicks += 1;
-      await sleep(45);
+      await sleep(35);
     }
     ok(clicks > 0, "自动完成人类操作（" + clicks + " 次点击）");
     const over = await ev("!document.getElementById('over-modal').hidden");
     ok(over, "对局跑到结算层");
+    ok((await ev("window.V2App.getGame().round")) >= 5, "跑满 5 轮");
     ok(await ev("!!document.querySelector('.over-sub')"), "结算层显示胜者");
     // 结算层个人分 rows
     ok((await ev("document.querySelectorAll('.over-row').length")) >= 2, "结算层显示所有玩家个人分");

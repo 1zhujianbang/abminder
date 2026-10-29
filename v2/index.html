@@ -3,15 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>卡卡牌 · 双牌 v2</title>
+  <title>卡卡牌 · 正负牌 v2</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="v2.css">
 </head>
 <body>
   <main id="screen-menu" class="screen">
     <div class="menu-card">
-      <div class="logo">卡卡牌 <span>· 双牌 v2</span></div>
-      <p class="menu-sub">无手牌区 · 每人一张公开配牌槽 + 一张暗置备牌位 · 只有交换与翻转</p>
+      <div class="logo">卡卡牌 <span>· 正负牌 v2</span></div>
+      <p class="menu-sub">10 张手牌 · 正向/负向牌区 · 5 轮 · 只有交换与翻转</p>
       <p class="menu-sub"><a href="RULES_V2.md" target="_blank">v2 规则文档</a> · <a href="../index.html">← 返回 v1（旧规则 demo）</a></p>
       <div class="menu-row">
         <label>玩家人数</label>
@@ -27,13 +27,13 @@
       </div>
       <button id="start-btn" class="act-btn primary wide">开始对局</button>
       <button id="rules-btn" class="act-btn wide">规则说明</button>
-      <p class="menu-note">目标：每回合把自己配牌槽与备牌位凑成同色，+1 分；个人分先到 10 获胜。<br>响应阶段只能以当前玩家的牌为目标。</p>
+      <p class="menu-note">每人 10 张手牌，共 5 轮：正向牌区、负向牌区各放 1 张；所有人响应（每人最多 2 次交换/翻转）；同时匹配，正向朝上色 = 负向朝下色得 1 分。<br>手牌仅自己可见；负向区的匹配色也隐藏。</p>
     </div>
   </main>
 
   <main id="screen-game" class="screen" hidden>
     <header class="game-header">
-      <div class="brand">卡卡牌 · 双牌 v2</div>
+      <div class="brand">卡卡牌 · 正负牌 v2</div>
       <div class="header-status">
         <span id="hdr-round">第 1 轮</span>
         <span>·</span>
@@ -67,14 +67,13 @@
 
   <div id="rules-modal" class="modal" hidden>
     <div class="modal-card rules">
-      <h2>《卡卡牌·双牌 v2》</h2>
-      <p><b>每人：</b>配牌槽（公开，1 张）、备牌位（暗置，1 张）、抽牌位（临时，暗置）。没有手牌区。</p>
-      <p><b>回合：</b>补牌到 2 张 → 抽 1 张放进配牌槽 → 从旧配牌槽/备牌位中选 1 张放备牌位，另一张弃掉 → 下家起所有其他玩家各响应一次（只能以当前玩家的牌为目标）→ 当前玩家最后行动一次 → 结算。</p>
-      <p><b>两个动作：</b>交换（用自己的配牌槽/备牌位一张牌换目标玩家的一张牌）、翻转（翻一张牌到另一面，颜色改变）。</p>
-      <p><b>响应：</b>每名其他玩家一次，可交换/翻转/跳过；交换会同时改变双方牌型。</p>
-      <p><b>最后行动：</b>当前玩家可翻自己一张牌，或与任意玩家交换一张牌，或跳过。</p>
-      <p><b>结算：</b>当前玩家配牌槽与备牌位当前颜色相同 → 个人分 +1；成功两张进弃牌堆，失败保留。先到 10 分获胜，只有当前玩家得分。</p>
-      <p><b>操作：</b>全部点击按钮完成；暗牌只有本人能看，备牌位在结算时公开。</p>
+      <h2>《卡卡牌·正负牌 v2》</h2>
+      <p><b>每人：</b>10 张手牌（仅自己可见）、1 个正向牌区、1 个负向牌区。</p>
+      <p><b>每轮：</b>从本轮起始玩家开始，依次从手牌放 1 张到正向牌区（正面朝上）→ 同样依次放 1 张到负向牌区（正面朝上）→ 从起始玩家开始按座位顺序响应，每人最多 2 次交换/翻转（同一玩家对同一张牌每轮最多一次）→ 同时匹配。</p>
+      <p><b>匹配：</b>正向牌区当前朝上一面的颜色 = 负向牌区当前朝下一面的颜色，成功 +1。负向区的朝下面只有本人知道，结算时公开。</p>
+      <p><b>交换：</b>用自己的一张牌（正向/负向/手牌）与自己的另一张牌，或其他玩家负向区的牌交换位置。不能碰别人的正向区和手牌。</p>
+      <p><b>翻转：</b>翻转自己的一张牌（正向/负向/手牌），或其他玩家负向区的一张牌，改变朝上/朝下颜色。</p>
+      <p><b>轮次：</b>共 5 轮，手牌 10→8→6→4→2→0；每轮开始轮换先手。总分最高获胜，同分依次比较最后一轮是否成功、响应次数更少，仍同分则共享胜利。</p>
       <button id="rules-close" class="act-btn">知道了</button>
     </div>
   </div>
@@ -84,3 +83,4 @@
   <script src="js/v2-ui.js"></script>
 </body>
 </html>
+

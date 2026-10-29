@@ -88,3 +88,22 @@ button { font: inherit; }
   .log { height: 220px; }
   .actions { max-height: none; }
 }
+
+.hand-wrap { margin-top: 8px; }
+.hand-title { font-size: 11px; color: var(--muted); margin: 4px 0 6px; }
+.hand-cards { display: flex; flex-wrap: wrap; gap: 5px; }
+.hand-card { width: 52px; height: 62px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); cursor: default; padding: 0; overflow: hidden; }
+.hand-card .hc-face { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; font-size: 14px; font-weight: 700; }
+.hand-card .hc-sub { display: block; font-size: 9px; font-weight: 400; color: rgba(255,255,255,.7); margin-top: 2px; }
+.hand-card.can-play { cursor: pointer; border-color: var(--gold); box-shadow: 0 0 0 1px rgba(216,176,106,.35); }
+.hand-card.can-play:hover { background: #3a2a1b; }
+.hand-card.dim { opacity: .75; }
+.hand-card.c-red { background: linear-gradient(160deg, #a93a3a, #5f1f1f); }
+.hand-card.c-yellow { background: linear-gradient(160deg, #c9a63c, #6d551c); }
+.hand-card.c-blue { background: linear-gradient(160deg, #3f6fae, #1f365e); }
+.hand-card.c-green { background: linear-gradient(160deg, #458c5e, #1f4a30); }
+.hand-card.c-purple { background: linear-gradient(160deg, #7b52ad, #3f2a5e); }
+.hand-card.c-orange { background: linear-gradient(160deg, #b96f34, #5e3517); }
+.vp-cards { align-items: stretch; }
+.actions { max-height: 52vh; }
+@media (max-width: 980px) { .hand-card { width: 46px; height: 56px; } }

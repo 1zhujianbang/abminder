@@ -1,35 +1,27 @@
 "use strict";
-/* v2 AI 全自动模拟：检查引擎/规则能否正常完成对局与统计。 */
+/* v2 新规则模拟：10 张手牌 / 正负牌区 / 5 轮 / 每人最多 2 次响应 */
 const path = require("node:path");
-const { Game, PHASES, WIN_SCORE } = require(path.join(__dirname, "..", "js", "v2-engine.js"));
+const { Game, PHASES } = require(path.join(__dirname, "..", "js", "v2-engine.js"));
 const AI = require(path.join(__dirname, "..", "js", "v2-ai.js"));
 
 function playOne(players, colors, seed) {
   const g = new Game({ player_count: players, color_count: colors, seed, all_ai: true });
   let steps = 0;
-  let guard = 0;
-  while (!g.gameOver && guard++ < 20000) {
-    if (g.phase === PHASES.ARRANGE) {
-      const opt = AI.arrange(g);
-      if (!opt) throw new Error("no arrange option");
-      const r = g.arrange(opt);
-      if (!r.ok) throw new Error("arrange failed: " + r.error);
+  while (!g.gameOver && steps < 2000) {
+    if (g.phase === PHASES.PLACE_POS || g.phase === PHASES.PLACE_NEG) {
+      const seat = g.currentPlacer();
+      if (seat < 0) throw new Error("placement with no placer");
+      const idx = AI.choosePlacement(g);
+      const r = g.placeCard(idx);
+      if (!r.ok) throw new Error("place failed: " + r.error);
     } else if (g.phase === PHASES.RESPONSE) {
       const r = g.currentResponder();
       if (r < 0) throw new Error("response with no responder");
       const opt = AI.chooseResponse(g);
-      if (!opt) throw new Error("no response option");
       const rr = g.performResponse(opt);
       if (!rr.ok) throw new Error("response failed: " + rr.error);
-    } else if (g.phase === PHASES.FINAL) {
-      const opt = AI.chooseFinal(g);
-      if (!opt) throw new Error("no final option");
-      const rr = g.performFinal(opt);
-      if (!rr.ok) throw new Error("final failed: " + rr.error);
-      const res = g.resolve();
-      if (!res.ok) throw new Error("resolve failed: " + res.error);
     } else if (g.phase === PHASES.REVEAL) {
-      g.nextTurn();
+      g.nextRound();
     } else if (g.phase === PHASES.OVER) {
       break;
     } else {
@@ -37,13 +29,20 @@ function playOne(players, colors, seed) {
     }
     steps += 1;
   }
-  return { over: g.gameOver, steps, round: g.round, scores: g.players.map((p) => p.score), winners: g.winners.slice() };
+  return {
+    over: g.gameOver,
+    steps,
+    scores: g.players.map((p) => p.score),
+    winners: g.winners.slice(),
+    used: g.players.map((p) => p.totalResponseUsed || 0),
+  };
 }
 
 let total = 0, done = 0, fail = 0;
-const rounds = [];
-const winners = [0, 0, 0, 0];
-const scoreDist = {};
+const scores = [];
+const winnerCounts = {};
+const tieCount = { games: 0, ties: 0 };
+const scoreHistogram = {};
 for (const players of [2, 3, 4]) {
   for (const colors of [2, 3, 4]) {
     for (let i = 0; i < 20; i++) {
@@ -51,13 +50,15 @@ for (const players of [2, 3, 4]) {
       const seed = players * 100000 + colors * 1000 + i * 97 + 7;
       try {
         const r = playOne(players, colors, seed);
-        if (r.over) {
-          done += 1;
-          rounds.push(r.round);
-          winners[r.winners.length] = (winners[r.winners.length] || 0) + 1;
-          const key = r.scores.join(",");
-          scoreDist[key] = (scoreDist[key] || 0) + 1;
-        } else fail += 1;
+        if (!r.over) { fail += 1; continue; }
+        done += 1;
+        scores.push(r.scores.reduce((a, b) => a + b, 0) / r.scores.length);
+        const w = r.winners.length;
+        winnerCounts[w] = (winnerCounts[w] || 0) + 1;
+        if (w > 1) { tieCount.ties += 1; }
+        tieCount.games += 1;
+        const key = r.scores.join(",");
+        scoreHistogram[key] = (scoreHistogram[key] || 0) + 1;
       } catch (e) {
         fail += 1;
         console.error("FAIL", players, colors, seed, e.message);
@@ -66,8 +67,10 @@ for (const players of [2, 3, 4]) {
     }
   }
 }
-rounds.sort((a, b) => a - b);
+scores.sort((a, b) => a - b);
 console.log("games", total, "done", done, "fail", fail);
-console.log("avg rounds", (rounds.reduce((a, b) => a + b, 0) / Math.max(1, rounds.length)).toFixed(1), "P90", rounds[Math.floor(rounds.length * 0.9)], "max", rounds[rounds.length - 1]);
-console.log("winners count", winners);
-console.log("score dist example", Object.keys(scoreDist).slice(0, 10).map((k) => k + "×" + scoreDist[k]).join(" | "));
+console.log("avg total score", (scores.reduce((a, b) => a + b, 0) / Math.max(1, scores.length)).toFixed(2), "min", scores[0], "max", scores[scores.length - 1]);
+console.log("winners count", winnerCounts);
+console.log("tie rate", ((100 * tieCount.ties) / Math.max(1, tieCount.games)).toFixed(1) + "%");
+const top = Object.keys(scoreHistogram).sort((a, b) => scoreHistogram[b] - scoreHistogram[a]).slice(0, 8);
+console.log("common scores:", top.map((k) => k + "×" + scoreHistogram[k]).join(" | "));
